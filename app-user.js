@@ -18,7 +18,7 @@ function showToast(message, type) {
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function formatPrice(v) { return Number(v || 0).toLocaleString("th-TH") + " บาท"; }
+function formatPrice(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
 function formatTime(sec) {
   if (!isFinite(sec) || sec < 0) return "0:00";
   const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
