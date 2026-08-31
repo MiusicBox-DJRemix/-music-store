@@ -36,6 +36,8 @@
       <div class="quick-actions">
         <button id="qaAddSong">➕<br>เพิ่มเพลง</button>
         <button id="qaManageSongs">🎵<br>จัดการเพลง</button>
+        <button id="qaManagePlaylists">🎶<br>จัดการเพลย์ลิสต์</button>
+        <button id="qaBulkUpload">📦<br>เพิ่มเพลงหลายไฟล์</button>
         <button id="qaManageCats">🗂️<br>จัดการหมวดหมู่</button>
         <button id="qaManageDjs">🎧<br>จัดการ DJ</button>
         <button id="qaSettings" style="grid-column:span 2;">🔧<br>ตั้งค่าเว็บไซต์</button>
@@ -67,6 +69,15 @@
         <button class="icon-btn" id="addDjBtn" style="background:var(--accent);color:#fff;">＋</button>
       </div>
       <div id="djList"></div>
+    </div>
+
+    <div id="view-playlists" class="view" style="display:none;">
+      <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
+        <button class="icon-btn back-btn">←</button>
+        <div style="flex:1;font-weight:800;">จัดการเพลย์ลิสต์</div>
+        <button class="icon-btn" id="addPlaylistBtn" style="background:var(--accent);color:#fff;">＋</button>
+      </div>
+      <div id="playlistList"></div>
     </div>
 
     <div id="view-settings" class="view" style="display:none;">
@@ -103,6 +114,7 @@
       <div class="field"><label>ศิลปิน</label><input id="fArtist"></div>
       <div class="field"><label>DJ</label><select id="fDj"><option value="">— ไม่ระบุ —</option></select></div>
       <div class="field"><label>หมวดหมู่</label><select id="fCategory"><option value="">— ไม่ระบุ —</option></select></div>
+      <div class="field"><label>เพลย์ลิสต์</label><select id="fPlaylist"><option value="">— ไม่ระบุ —</option></select></div>
       <div class="field"><label>ราคา (LAK)</label><input id="fPrice" type="number" min="0"></div>
       <div class="field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
       <div class="field"><label>สถานะ</label><select id="fStatus"><option value="active">เผยแพร่ (active)</option><option value="hidden">ซ่อน (hidden)</option></select></div>
@@ -130,6 +142,53 @@
         <input type="file" id="djImageInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
       </div>
       <button class="btn" id="djSaveBtn">บันทึก</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="playlistFormBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3 id="playlistFormTitle">เพิ่มเพลย์ลิสต์</h3><button class="modal-close" id="playlistFormClose">✕</button></div>
+      <div class="field"><label>ชื่อเพลย์ลิสต์ *</label><input id="fPlaylistName"></div>
+      <div class="field"><label>คำอธิบาย</label><textarea id="fPlaylistDesc"></textarea></div>
+      <div class="field">
+        <label>รูปปกเพลย์ลิสต์</label>
+        <label class="file-picker" id="playlistCoverPicker" for="playlistCoverInput">🖼️ แตะเพื่อเลือกรูปปก</label>
+        <input type="file" id="playlistCoverInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+      </div>
+      <button class="btn" id="playlistSaveBtn">บันทึก</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="bulkUploadBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3>เพิ่มเพลงหลายไฟล์พร้อมกัน</h3><button class="modal-close" id="bulkUploadClose">✕</button></div>
+      <p style="color:var(--text-dim);font-size:13px;margin-top:-8px;">เลือกไฟล์เพลงหลายไฟล์พร้อมกันจากแอป Files แล้วระบบจะอัปโหลดทีละไฟล์ให้อัตโนมัติ พร้อมจัดเข้าเพลย์ลิสต์เดียวกันทั้งหมด</p>
+
+      <div class="field">
+        <label>เพลย์ลิสต์ปลายทาง *</label>
+        <select id="bulkPlaylist"><option value="">— เลือกเพลย์ลิสต์ —</option></select>
+      </div>
+      <div class="field"><label>หรือสร้างเพลย์ลิสต์ใหม่ (ถ้าไม่เลือกด้านบน)</label><input id="bulkNewPlaylistName" placeholder="ชื่อเพลย์ลิสต์ใหม่"></div>
+
+      <div class="field">
+        <label>ไฟล์เพลงทั้งหมด (เลือกได้หลายไฟล์)</label>
+        <label class="file-picker" id="bulkFilesPicker" for="bulkFilesInput">📁 แตะเพื่อเลือกไฟล์เพลงหลายไฟล์</label>
+        <input type="file" id="bulkFilesInput" accept="audio/*,.wav,.mp3" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+      </div>
+
+      <div class="field"><label>DJ (ใช้กับทุกเพลงในชุดนี้ — ไม่ระบุก็ได้)</label><select id="bulkDj"><option value="">— ไม่ระบุ —</option></select></div>
+      <div class="field"><label>หมวดหมู่ (ใช้กับทุกเพลงในชุดนี้ — ไม่ระบุก็ได้)</label><select id="bulkCategory"><option value="">— ไม่ระบุ —</option></select></div>
+      <div class="field"><label>ราคาต่อเพลง (LAK — ใช้กับทุกเพลงในชุดนี้)</label><input id="bulkPrice" type="number" min="0"></div>
+      <div class="field">
+        <label>รูปปก (ใช้กับทุกเพลงในชุดนี้ — ไม่บังคับ)</label>
+        <label class="file-picker" id="bulkCoverPicker" for="bulkCoverInput">🖼️ แตะเพื่อเลือกรูปปก (ใช้ร่วมกันทั้งชุด)</label>
+        <input type="file" id="bulkCoverInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+      </div>
+
+      <div class="progress-outer" id="bulkProgressWrap" style="display:none;"><div class="progress-inner" id="bulkProgress"></div></div>
+      <div id="bulkStatusText" style="font-size:12px;color:var(--text-dim);margin-top:6px;"></div>
+
+      <button class="btn" id="bulkUploadBtn" style="margin-top:14px;">เริ่มอัปโหลดทั้งหมด</button>
     </div>
   </div>
 
