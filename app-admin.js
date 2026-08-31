@@ -323,6 +323,7 @@ async function loadSettings() {
   const snap = await getDoc(doc(db, "settings", "main"));
   const s = snap.exists() ? snap.data() : {};
   document.getElementById("setWebsiteName").value = s.website_name || "";
+  document.getElementById("setMetaDesc").value = s.meta_description || "";
   document.getElementById("setAdminName").value = s.admin_name || "";
   document.getElementById("setWhatsapp").value = s.whatsapp_number || "";
   document.getElementById("setLogo").value = s.website_logo || "";
@@ -330,6 +331,7 @@ async function loadSettings() {
 document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
   const payload = {
     website_name: document.getElementById("setWebsiteName").value.trim(),
+    meta_description: document.getElementById("setMetaDesc").value.trim(),
     admin_name: document.getElementById("setAdminName").value.trim(),
     whatsapp_number: document.getElementById("setWhatsapp").value.trim(),
     website_logo: document.getElementById("setLogo").value.trim()
@@ -353,3 +355,5 @@ document.getElementById("confirmOk").addEventListener("click", async () => {
   document.getElementById("confirmBackdrop").classList.remove("show");
   if (confirmAction) await confirmAction();
 });
+
+    
