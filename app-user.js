@@ -18,7 +18,7 @@ function showToast(message, type) {
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function formatPrice(v) { return Number(v || 0).toLocaleString("th-TH") + " กีบ"; }
+function formatPrice(v) { return Number(v || 0).toLocaleString("th-TH") + " บาท"; }
 function formatTime(sec) {
   if (!isFinite(sec) || sec < 0) return "0:00";
   const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
@@ -120,7 +120,7 @@ function renderSongGrid() {
     <div class="song-card" data-id="${s.id}">
       <div class="song-cover">
         <img src="${s.cover_url || ""}">
-        <button class="play-btn" data-play="${s.id}"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="play-btn" data-play="${s.id}"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
       </div>
       <div class="song-info">
         <div class="song-name">${escapeHtml(s.song_name)}</div>
