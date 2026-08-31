@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Admin - Music Store</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <h2>เข้าสู่ระบบ Admin</h2>
+      <p>สำหรับผู้ดูแลระบบเท่านั้น</p>
+      <div class="field"><label>อีเมล</label><input id="loginEmail" type="email" autocomplete="username"></div>
+      <div class="field"><label>รหัสผ่าน</label><input id="loginPassword" type="password" autocomplete="current-password"></div>
+      <button class="btn" id="loginBtn">เข้าสู่ระบบ</button>
+      <div id="loginError" style="color:var(--danger);font-size:13px;margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div class="admin-shell" id="adminShell" style="display:none;">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="logo"><span>⚙️ Admin — <span id="adminSiteName">Music Store</span></span></div>
+        <button class="icon-btn" id="logoutBtn" style="margin-left:auto;">⎋</button>
+      </div>
+    </div>
+
+    <div id="view-dashboard" class="view">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="num" id="statSongs">0</div><div class="label">เพลงทั้งหมด</div></div>
+        <div class="stat-card"><div class="num" id="statCats">0</div><div class="label">หมวดหมู่</div></div>
+        <div class="stat-card"><div class="num" id="statDjs">0</div><div class="label">DJ</div></div>
+      </div>
+      <div class="quick-actions">
+        <button id="qaAddSong">➕<br>เพิ่มเพลง</button>
+        <button id="qaManageSongs">🎵<br>จัดการเพลง</button>
+        <button id="qaManageCats">🗂️<br>จัดการหมวดหมู่</button>
+        <button id="qaManageDjs">🎧<br>จัดการ DJ</button>
+        <button id="qaSettings" style="grid-column:span 2;">🔧<br>ตั้งค่าเว็บไซต์</button>
+      </div>
+    </div>
+
+    <div id="view-songs" class="view" style="display:none;">
+      <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
+        <button class="icon-btn back-btn">←</button>
+        <div class="search-box" style="flex:1;"><input id="songSearch" placeholder="ค้นหาเพลง..."></div>
+        <button class="icon-btn" id="addSongBtn" style="background:var(--accent);color:#fff;">＋</button>
+      </div>
+      <div id="songList"></div>
+    </div>
+
+    <div id="view-categories" class="view" style="display:none;">
+      <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
+        <button class="icon-btn back-btn">←</button>
+        <div style="flex:1;font-weight:800;">จัดการหมวดหมู่</div>
+        <button class="icon-btn" id="addCatBtn" style="background:var(--accent);color:#fff;">＋</button>
+      </div>
+      <div id="catList"></div>
+    </div>
+
+    <div id="view-djs" class="view" style="display:none;">
+      <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
+        <button class="icon-btn back-btn">←</button>
+        <div style="flex:1;font-weight:800;">จัดการ DJ</div>
+        <button class="icon-btn" id="addDjBtn" style="background:var(--accent);color:#fff;">＋</button>
+      </div>
+      <div id="djList"></div>
+    </div>
+
+    <div id="view-settings" class="view" style="display:none;">
+      <div class="container" style="padding:14px 16px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+          <button class="icon-btn back-btn">←</button>
+          <div style="font-weight:800;">ตั้งค่าเว็บไซต์</div>
+        </div>
+        <div class="field"><label>ชื่อเว็บไซต์</label><input id="setWebsiteName"></div>
+        <div class="field"><label>ชื่อ Admin</label><input id="setAdminName"></div>
+        <div class="field"><label>เบอร์ WhatsApp (รูปแบบสากล เช่น 66812345678)</label><input id="setWhatsapp"></div>
+        <div class="field"><label>URL โลโก้เว็บไซต์</label><input id="setLogo"></div>
+        <button class="btn" id="saveSettingsBtn">บันทึกการตั้งค่า</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="songFormBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3 id="songFormTitle">เพิ่มเพลง</h3><button class="modal-close" id="songFormClose">✕</button></div>
+      <div class="field">
+        <label>ไฟล์เพลง (MP3 / WAV)</label>
+        <label class="file-picker" id="songFilePicker" for="songFileInput">📁 แตะเพื่อเลือกไฟล์เพลงจาก iPhone/iPad</label>
+        <input type="file" id="songFileInput" accept="audio/*,.wav,.mp3" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+        <div class="progress-outer" id="songUploadProgressWrap" style="display:none;"><div class="progress-inner" id="songUploadProgress"></div></div>
+      </div>
+      <div class="field">
+        <label>รูปปกเพลง</label>
+        <label class="file-picker" id="coverFilePicker" for="coverFileInput">🖼️ แตะเพื่อเลือกรูปปก</label>
+        <input type="file" id="coverFileInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+      </div>
+      <div class="field"><label>ชื่อเพลง *</label><input id="fSongName"></div>
+      <div class="field"><label>ศิลปิน</label><input id="fArtist"></div>
+      <div class="field"><label>DJ</label><select id="fDj"><option value="">— ไม่ระบุ —</option></select></div>
+      <div class="field"><label>หมวดหมู่</label><select id="fCategory"><option value="">— ไม่ระบุ —</option></select></div>
+      <div class="field"><label>ราคา (บาท)</label><input id="fPrice" type="number" min="0"></div>
+      <div class="field"><label>รายละเอียด</label><textarea id="fDesc"></textarea></div>
+      <div class="field"><label>สถานะ</label><select id="fStatus"><option value="active">เผยแพร่ (active)</option><option value="hidden">ซ่อน (hidden)</option></select></div>
+      <button class="btn" id="songSaveBtn">บันทึกเพลง</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="catFormBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3 id="catFormTitle">เพิ่มหมวดหมู่</h3><button class="modal-close" id="catFormClose">✕</button></div>
+      <div class="field"><label>ชื่อหมวดหมู่ *</label><input id="fCatName"></div>
+      <div class="field"><label>คำอธิบาย</label><textarea id="fCatDesc"></textarea></div>
+      <button class="btn" id="catSaveBtn">บันทึก</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="djFormBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3 id="djFormTitle">เพิ่ม DJ</h3><button class="modal-close" id="djFormClose">✕</button></div>
+      <div class="field"><label>ชื่อ DJ *</label><input id="fDjName"></div>
+      <div class="field"><label>คำอธิบาย</label><textarea id="fDjDesc"></textarea></div>
+      <div class="field">
+        <label>รูปโปรไฟล์ DJ</label>
+        <label class="file-picker" id="djImagePicker" for="djImageInput">🖼️ แตะเพื่อเลือกรูปจาก iPhone/iPad</label>
+        <input type="file" id="djImageInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+      </div>
+      <button class="btn" id="djSaveBtn">บันทึก</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="confirmBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3>ยืนยันการลบ</h3></div>
+      <p id="confirmText" style="color:var(--text-dim);">คุณต้องการลบรายการนี้หรือไม่?</p>
+      <div style="display:flex;gap:10px;">
+        <button class="btn secondary" id="confirmCancel" style="flex:1;">ยกเลิก</button>
+        <button class="btn danger" id="confirmOk" style="flex:1;">ลบ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="app-admin.js"></script>
+</body>
+</html>
