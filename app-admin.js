@@ -24,7 +24,7 @@ function showToast(message, type) {
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function formatPrice(v) { return Number(v || 0).toLocaleString("th-TH") + " บาท"; }
+function formatPrice(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 
 // ---------------- Auth ----------------
@@ -355,5 +355,3 @@ document.getElementById("confirmOk").addEventListener("click", async () => {
   document.getElementById("confirmBackdrop").classList.remove("show");
   if (confirmAction) await confirmAction();
 });
-
-    
