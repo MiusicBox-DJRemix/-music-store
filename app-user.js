@@ -43,6 +43,11 @@ async function init() {
   STATE.settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
   document.getElementById("siteName").textContent = STATE.settings.website_name || "Music Store";
+  document.title = STATE.settings.website_name || "Music Store";
+  if (STATE.settings.meta_description) {
+    const metaTag = document.querySelector('meta[name="description"]');
+    if (metaTag) metaTag.setAttribute("content", STATE.settings.meta_description);
+  }
   if (STATE.settings.website_logo) {
     const logo = document.getElementById("siteLogo");
     logo.src = STATE.settings.website_logo;
