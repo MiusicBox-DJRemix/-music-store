@@ -4,6 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA6wfgjq7OwEIgOb3krxQdg1EFKiVcxX1o",
@@ -11,12 +12,15 @@ const firebaseConfig = {
   projectId: "musicbox-store",
   storageBucket: "musicbox-store.firebasestorage.app",
   messagingSenderId: "435724064019",
-  appId: "1:435724064019:web:51653bba1eaa82658576e6"
+  appId: "1:435724064019:web:51653bba1eaa82658576e6",
+  measurementId: "G-00Z619L2F1"
 };
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+// เปิดใช้งานเฉพาะตอนอยู่บนเว็บจริง (กัน error ตอนทดสอบในบางสภาพแวดล้อมที่ Analytics โหลดไม่ได้)
+export const analytics = (typeof window !== "undefined") ? getAnalytics(app) : null;
 
 // ค่า Cloudinary (ใช้เก็บไฟล์เพลง/รูปภาพ แทน Firebase Storage)
 export const CLOUDINARY_CLOUD_NAME = "g4nmb7ho";
