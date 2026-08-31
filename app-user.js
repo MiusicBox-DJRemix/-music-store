@@ -4,7 +4,7 @@
 import { db } from "./firebase-init.js";
 import { collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const STATE = { songs: [], categories: [], djs: [], settings: {}, currentCategory: "all", currentDj: null, search: "" };
+const STATE = { songs: [], categories: [], djs: [], playlists: [], settings: {}, currentCategory: "all", currentDj: null, search: "" };
 const AUDIO = new Audio();
 let audioUnlocked = false;
 
@@ -31,15 +31,17 @@ function buildWhatsAppLink(number, text) {
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 
 async function init() {
-  const [songsSnap, catSnap, djSnap, settingsSnap] = await Promise.all([
+  const [songsSnap, catSnap, djSnap, playlistSnap, settingsSnap] = await Promise.all([
     getDocs(collection(db, "songs")),
     getDocs(collection(db, "categories")),
     getDocs(collection(db, "djs")),
+    getDocs(collection(db, "playlists")),
     getDoc(doc(db, "settings", "main"))
   ]);
   STATE.songs = songsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.status !== "hidden");
   STATE.categories = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   STATE.djs = djSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  STATE.playlists = playlistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   STATE.settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
   document.getElementById("siteName").textContent = STATE.settings.website_name || "Music Store";
@@ -55,6 +57,7 @@ async function init() {
   }
   renderCategoryChips();
   renderDjRow();
+  renderPlaylists();
   renderSongGrid();
 }
 
@@ -138,6 +141,41 @@ function renderSongGrid() {
     el.addEventListener("click", (ev) => { ev.stopPropagation(); unlockAudio(); playSong(el.getAttribute("data-play")); });
   });
   grid.querySelectorAll(".song-card").forEach(el => {
+    el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
+  });
+}
+
+function renderPlaylists() {
+  const container = document.getElementById("playlistsContainer");
+  if (STATE.playlists.length === 0) { container.innerHTML = ""; return; }
+
+  container.innerHTML = STATE.playlists.map(pl => {
+    const songs = STATE.songs.filter(s => s.playlist_id === pl.id);
+    if (songs.length === 0) return "";
+    return `
+      <div class="playlist-block">
+        <div class="section-title playlist-heading">${escapeHtml(pl.playlist_name)}</div>
+        <div class="playlist-row" data-playlist="${pl.id}">
+          ${songs.map(s => `
+            <div class="playlist-item" data-id="${s.id}">
+              <div class="playlist-cover">
+                <img src="${s.cover_url || pl.cover_url || ""}">
+                <button class="playlist-play-btn" data-play="${s.id}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+              </div>
+              <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll("[data-play]").forEach(el => {
+    el.addEventListener("click", (ev) => { ev.stopPropagation(); unlockAudio(); playSong(el.getAttribute("data-play")); });
+  });
+  container.querySelectorAll(".playlist-item").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
 }
@@ -238,3 +276,5 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+
+  
