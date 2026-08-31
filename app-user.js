@@ -120,7 +120,7 @@ function renderSongGrid() {
     <div class="song-card" data-id="${s.id}">
       <div class="song-cover">
         <img src="${s.cover_url || ""}">
-        <button class="play-btn" data-play="${s.id}"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="play-btn" data-play="${s.id}"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
       </div>
       <div class="song-info">
         <div class="song-name">${escapeHtml(s.song_name)}</div>
