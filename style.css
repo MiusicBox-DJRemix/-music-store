@@ -321,9 +321,9 @@ button:active {
   pointer-events: none;
 }
 
-/* ---------- Playlist Row ---------- */
+/* ---------- Playlist Row (ปรับระยะห่างเป็น 0px) ---------- */
 .playlist-block {
-  margin-bottom: 8px;
+  margin-bottom: 0px;
   max-width: 1080px;
   margin-left: auto;
   margin-right: auto;
@@ -332,15 +332,15 @@ button:active {
 .playlist-row {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 0px !important; /* ปรับช่องว่างระหว่างแถวเพลย์ลิสต์เป็น 0px */
 }
 
 .playlist-song-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  border-radius: 0px; /* ปรับเป็นมุมเหลี่ยมเพื่อให้ต่อติดเป็นแถวเรียบเนียน */
   background: transparent;
   border-bottom: 1px solid var(--border);
   transition: all 0.2s ease;
@@ -348,7 +348,6 @@ button:active {
 
 .playlist-song-row:hover {
   background: var(--surface);
-  border-bottom-color: transparent;
 }
 
 .playlist-song-row:active {
@@ -445,11 +444,11 @@ button:active {
   border-radius: var(--radius-full);
 }
 
-/* ---------- Song List (ปรับให้กะทัดรัดความสูงเท่ารูปปกพอดี) ---------- */
+/* ---------- Song List (ปรับช่องว่างระหว่างแถวเพลงเป็น 0px เหมือนเพลย์ลิสต์) ---------- */
 .song-grid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0px !important; /* ปรับช่องว่างระหว่างการ์ดเพลงเป็น 0px */
   padding: 0 16px 20px;
   max-width: 1080px;
   margin: 0 auto;
@@ -457,26 +456,37 @@ button:active {
 
 .song-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: none;
+  border-bottom: 1px solid var(--border); /* ใช้เส้นขอบคั่นระหว่างแถวแทน */
+  border-radius: 0px !important; /* ปรับมุมเหลี่ยมเพื่อให้ชิดติดกันอย่างเรียบเนียน */
   overflow: hidden;
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 5px 10px; /* ลด Padding บน-ล่าง ให้พอดีแนบชิดกับรูปปก */
+  padding: 6px 10px; /* ลด Padding ให้แนบกะทัดรัด */
   gap: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: none;
   transition: all 0.2s ease;
+}
+
+/* ให้การ์ดเพลงใบแรกและใบสุดท้ายมีมุมโค้งมนเข้ากับกรอบใหญ่ (Optional) */
+.song-card:first-child {
+  border-top-left-radius: var(--radius-sm) !important;
+  border-top-right-radius: var(--radius-sm) !important;
+}
+
+.song-card:last-child {
+  border-bottom-left-radius: var(--radius-sm) !important;
+  border-bottom-right-radius: var(--radius-sm) !important;
 }
 
 .song-card:hover {
   background: var(--surface-2);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .song-card:active {
-  transform: scale(0.99);
+  transform: none;
   background: var(--surface-hover);
 }
 
@@ -1234,5 +1244,3 @@ button:active {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
- 
