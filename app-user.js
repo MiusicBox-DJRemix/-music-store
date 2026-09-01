@@ -228,26 +228,12 @@ function setPlayerIcon(playing) {
   if (iconEl) iconEl.innerHTML = playing ? stopIconPath() : playIconPath();
 }
 
-// ✅ แก้ไขสปินเนอร์ปุ่มใหญ่ม่วงด้านล่าง บังคับทรงกลม 100%
 function setPlayerLoading(loading) {
   const iconEl = document.getElementById("playerIcon");
   const spinnerEl = document.getElementById("playerSpinner");
   
   if (iconEl) iconEl.style.display = loading ? "none" : "block";
-  if (spinnerEl) {
-    spinnerEl.style.display = loading ? "block" : "none";
-    if (loading) {
-      // บังคับ CSS ของสปินเนอร์ตรงแถบเล่นเพลงล่างให้เป็นวงกลมสมบูรณ์แบบ ไม่ถูกบีบเบี้ยว
-      spinnerEl.style.width = "22px";
-      spinnerEl.style.height = "22px";
-      spinnerEl.style.minWidth = "22px";
-      spinnerEl.style.minHeight = "22px";
-      spinnerEl.style.boxSizing = "border-box";
-      spinnerEl.style.borderRadius = "50%";
-      spinnerEl.style.flexShrink = "0";
-      spinnerEl.style.margin = "auto";
-    }
-  }
+  if (spinnerEl) spinnerEl.style.display = loading ? "block" : "none";
 }
 
 // อัปเดตไอคอนของ "ทุกปุ่มฟังเพลง" ในหน้า
@@ -265,17 +251,6 @@ function updatePlayButtonsUI() {
       spinner.className = "spinner mini-play-spinner";
       btn.appendChild(spinner);
     }
-    
-    // บังคับสไตล์สปินเนอร์บนการ์ดเพลงให้เป็นวงกลมสมบูรณ์เสมอ
-    spinner.style.width = "16px";
-    spinner.style.height = "16px";
-    spinner.style.minWidth = "16px";
-    spinner.style.minHeight = "16px";
-    spinner.style.boxSizing = "border-box";
-    spinner.style.border = "2px solid rgba(255, 255, 255, 0.3)";
-    spinner.style.borderTopColor = "#ffffff";
-    spinner.style.borderRadius = "50%";
-    spinner.style.flexShrink = "0";
     
     if (id === loadingId) {
       if (svg) svg.style.display = "none";
@@ -297,11 +272,7 @@ function updatePlayButtonsUI() {
     const modalId = modalBtn.getAttribute("data-play");
     if (modalId && modalId === loadingId) {
       modalIcon.style.display = "none";
-      if (modalSpinner) {
-        modalSpinner.style.display = "block";
-        modalSpinner.style.borderRadius = "50%";
-        modalSpinner.style.boxSizing = "border-box";
-      }
+      if (modalSpinner) modalSpinner.style.display = "block";
       if (modalLabel) modalLabel.textContent = "กำลังโหลด...";
     } else {
       if (modalSpinner) modalSpinner.style.display = "none";
@@ -320,7 +291,6 @@ function playSong(songId) {
   const song = findSong(songId);
   if (!song || !song.file_url) { showToast("ไม่พบไฟล์เพลง", "error"); return; }
 
-  // ถ้ากดปุ่มของเพลงเดียวกับที่กำลังเล่น/พักอยู่ -> สลับ เล่น/หยุด แทนการโหลดใหม่
   if (STATE.currentPlayingId === songId && !STATE.currentLoadingId && AUDIO.src) {
     if (AUDIO.paused) {
       AUDIO.play().then(updatePlayButtonsUI).catch(() => {});
@@ -402,7 +372,6 @@ if (seekEl) {
   });
 }
 
-// ตรวจจับ Error เมื่อไฟล์เพลงมีปัญหา
 AUDIO.addEventListener("error", () => {
   showToast("เกิดข้อผิดพลาดในการโหลดไฟล์เพลง", "error");
   STATE.currentLoadingId = null;
@@ -488,4 +457,3 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
-  
