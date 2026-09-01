@@ -37,21 +37,22 @@ button:active{transform:scale(.96);}
 .dj-name{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .section-title{font-size:17.5px;font-weight:800;margin:6px auto 12px;max-width:1080px;padding:0 16px;}
 
-/* ---------- Playlist rows (แบบ Spotify) ---------- */
-.playlist-block{margin-bottom:6px;}
-.playlist-heading{margin-bottom:10px;}
-.playlist-row{display:flex;gap:12px;overflow-x:auto;padding:0 16px 14px;scrollbar-width:none;
-  max-width:1080px;margin:0 auto;}
-.playlist-row::-webkit-scrollbar{display:none;}
-.playlist-item{flex-shrink:0;width:92px;}
-.playlist-cover{width:92px;height:92px;border-radius:10px;background:var(--surface-2);position:relative;
-  overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+/* ---------- Playlist: รายการเพลงเรียงลงมาเป็นแถว ---------- */
+.playlist-block{margin-bottom:8px;max-width:1080px;margin-left:auto;margin-right:auto;}
+.playlist-heading{margin-bottom:6px;}
+.playlist-row{display:flex;flex-direction:column;}
+.playlist-song-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);}
+.playlist-song-row:active{background:var(--surface-2);}
+.playlist-cover{width:46px;height:46px;border-radius:8px;background:var(--surface-2);position:relative;
+  overflow:hidden;flex-shrink:0;}
 .playlist-cover img{width:100%;height:100%;object-fit:cover;}
-.playlist-play-btn{position:absolute;bottom:5px;right:5px;width:26px;height:26px;border-radius:50%;
-  background:rgba(124,92,255,.95);border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;
-  justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);}
-.playlist-item-name{font-size:11px;font-weight:600;margin-top:6px;line-height:1.3;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text);}
+.playlist-play-btn{position:absolute;bottom:2px;right:2px;width:20px;height:20px;border-radius:50%;
+  background:rgba(124,92,255,.95);border:1.5px solid rgba(255,255,255,.25);display:flex;align-items:center;
+  justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);}
+.playlist-info{flex:1;min-width:0;}
+.playlist-item-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+.playlist-item-sub{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.playlist-item-price{font-size:12px;font-weight:800;color:var(--success);flex-shrink:0;white-space:nowrap;}
 .song-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:0 14px 20px;max-width:1080px;margin:0 auto;}
 @media(min-width:380px){.song-grid{grid-template-columns:repeat(3,1fr);}}
 @media(min-width:600px){.song-grid{grid-template-columns:repeat(4,1fr);}}
@@ -152,4 +153,3 @@ button:active{transform:scale(.96);}
 .login-card p{margin:0 0 20px;color:var(--text-dim);font-size:13px;}
 .spinner{width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
-
