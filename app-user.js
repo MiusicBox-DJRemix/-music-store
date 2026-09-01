@@ -225,7 +225,8 @@ function updatePlayButtonsUI() {
     if (!spinner) {
       spinner = document.createElement("div");
       spinner.className = "spinner mini-play-spinner";
-      spinner.style.cssText = "width:12px;height:12px;border-width:2px;display:none;";
+      // ขนาดวงกลมหมุนของปุ่มเล่นเพลง (การ์ดเพลง/playlist) — แก้ตัวเลข width/height/border-width ตรงนี้เพื่อปรับขนาด
+      spinner.style.cssText = "width:20px;height:20px;border-width:3px;display:none;";
       btn.appendChild(spinner);
     }
     if (id === loadingId) {
@@ -367,4 +368,5 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+
 
