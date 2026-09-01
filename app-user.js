@@ -228,11 +228,26 @@ function setPlayerIcon(playing) {
   if (iconEl) iconEl.innerHTML = playing ? stopIconPath() : playIconPath();
 }
 
+// ✅ แก้ไขสปินเนอร์ปุ่มใหญ่ม่วงด้านล่าง บังคับทรงกลม 100%
 function setPlayerLoading(loading) {
   const iconEl = document.getElementById("playerIcon");
   const spinnerEl = document.getElementById("playerSpinner");
+  
   if (iconEl) iconEl.style.display = loading ? "none" : "block";
-  if (spinnerEl) spinnerEl.style.display = loading ? "block" : "none";
+  if (spinnerEl) {
+    spinnerEl.style.display = loading ? "block" : "none";
+    if (loading) {
+      // บังคับ CSS ของสปินเนอร์ตรงแถบเล่นเพลงล่างให้เป็นวงกลมสมบูรณ์แบบ ไม่ถูกบีบเบี้ยว
+      spinnerEl.style.width = "22px";
+      spinnerEl.style.height = "22px";
+      spinnerEl.style.minWidth = "22px";
+      spinnerEl.style.minHeight = "22px";
+      spinnerEl.style.boxSizing = "border-box";
+      spinnerEl.style.borderRadius = "50%";
+      spinnerEl.style.flexShrink = "0";
+      spinnerEl.style.margin = "auto";
+    }
+  }
 }
 
 // อัปเดตไอคอนของ "ทุกปุ่มฟังเพลง" ในหน้า
@@ -248,23 +263,19 @@ function updatePlayButtonsUI() {
     if (!spinner) {
       spinner = document.createElement("div");
       spinner.className = "spinner mini-play-spinner";
-      
-      // ล็อกสไตล์ให้เป็นวงกลมสมบูรณ์ไม่เบี้ยว 100%
-      spinner.style.cssText = `
-        width: 16px;
-        height: 16px;
-        min-width: 16px;
-        min-height: 16px;
-        box-sizing: border-box;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top-color: #ffffff;
-        border-radius: 50%;
-        flex-shrink: 0;
-        display: none;
-        animation: spin 0.8s linear infinite;
-      `;
       btn.appendChild(spinner);
     }
+    
+    // บังคับสไตล์สปินเนอร์บนการ์ดเพลงให้เป็นวงกลมสมบูรณ์เสมอ
+    spinner.style.width = "16px";
+    spinner.style.height = "16px";
+    spinner.style.minWidth = "16px";
+    spinner.style.minHeight = "16px";
+    spinner.style.boxSizing = "border-box";
+    spinner.style.border = "2px solid rgba(255, 255, 255, 0.3)";
+    spinner.style.borderTopColor = "#ffffff";
+    spinner.style.borderRadius = "50%";
+    spinner.style.flexShrink = "0";
     
     if (id === loadingId) {
       if (svg) svg.style.display = "none";
@@ -286,7 +297,11 @@ function updatePlayButtonsUI() {
     const modalId = modalBtn.getAttribute("data-play");
     if (modalId && modalId === loadingId) {
       modalIcon.style.display = "none";
-      if (modalSpinner) modalSpinner.style.display = "block";
+      if (modalSpinner) {
+        modalSpinner.style.display = "block";
+        modalSpinner.style.borderRadius = "50%";
+        modalSpinner.style.boxSizing = "border-box";
+      }
       if (modalLabel) modalLabel.textContent = "กำลังโหลด...";
     } else {
       if (modalSpinner) modalSpinner.style.display = "none";
@@ -473,3 +488,4 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+  
