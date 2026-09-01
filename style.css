@@ -37,24 +37,138 @@ button:active{transform:scale(.96);}
 .dj-name{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .section-title{font-size:17.5px;font-weight:800;margin:6px auto 12px;max-width:1080px;padding:0 16px;}
 
-/* ---------- Playlist Row (ส่วนบน) ---------- */
-.playlist-block{margin-bottom:8px;max-width:1080px;margin-left:auto;margin-right:auto;}
-.playlist-heading{margin-bottom:6px;}
-.playlist-row{display:flex;flex-direction:column;}
-.playlist-song-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);}
-.playlist-song-row:active{background:var(--surface-2);}
-.playlist-cover{width:64px;height:64px;border-radius:8px;background:var(--surface-2);position:relative;
-  overflow:hidden;flex-shrink:0;}
-.playlist-cover img{width:100%;height:100%;object-fit:cover;}
-.playlist-play-btn{position:absolute;inset:0;width:100%;height:100%;border-radius:0;
-  background:rgba(0,0,0,.35);border:none;display:flex;align-items:center;
-  justify-content:center;box-shadow:none;}
-.playlist-info{flex:1;min-width:0;}
-.playlist-item-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
-.playlist-item-sub{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.playlist-item-price{font-size:12px;font-weight:800;color:var(--success);flex-shrink:0;white-space:nowrap;}
+/* ---------- Dynamic Playlists Dropdown (แยกเปิด-ปิด แต่ละรายการอิสระ) ---------- */
+.playlist-wrapper {
+  max-width: 1080px;
+  margin: 0 auto 12px;
+  padding: 0 16px;
+}
 
-/* ---------- Song List: ขยายรูปใหญ่ขึ้น และปุ่มเล่นใหญ่เท่ารูปภาพ ---------- */
+.playlist-item {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.playlist-header-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  padding: 12px 0;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+}
+
+.playlist-header-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.dropdown-icon {
+  transition: transform 0.25s ease;
+  transform: rotate(-90deg); /* ค่าเริ่มต้น ซ่อนอยู่ชี้ไปทางขวา */
+}
+
+.playlist-item.active .dropdown-icon {
+  transform: rotate(0deg); /* เปิดแล้วให้หมุนชี้ลง */
+}
+
+.playlist-content-box {
+  transition: all 0.25s ease;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+}
+
+.playlist-item.active .playlist-content-box {
+  max-height: 2000px; /* ความสูงเปิดขยายออก */
+  opacity: 1;
+  padding-bottom: 8px;
+}
+
+.playlist-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.playlist-song-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.playlist-song-row:active {
+  background: var(--surface-2);
+}
+
+.playlist-cover {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.playlist-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-play-btn {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: rgba(0,0,0,.35);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+.playlist-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-item-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.playlist-item-sub {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.playlist-item-price {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--success);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---------- Song List ---------- */
 .song-grid{
   display:flex;
   flex-direction:column;
@@ -84,10 +198,10 @@ button:active{transform:scale(.96);}
 }
 
 .song-cover{
-  width:64px;           /* ปรับขนาดกรอบรูปภาพให้ใหญ่ขึ้น */
+  width:64px;
   height:64px;
   flex-shrink:0;
-  border-radius:10px;    /* ปรับมุมมนของกรอบรูป */
+  border-radius:10px;
   position:relative;
   background:var(--surface-2);
   overflow:hidden;
@@ -102,11 +216,11 @@ button:active{transform:scale(.96);}
 
 .song-cover .play-btn{
   position:absolute;
-  inset:0;              /* ขยายปุ่มครอบคลุมพื้นที่ทั้งหมดของรูป */
+  inset:0;
   width:100%;
   height:100%;
   border-radius:0;
-  background:rgba(0, 0, 0, 0.35); /* เพิ่มพื้นหลังสีดำจางๆ เพื่อให้เห็นปุ่มชัดขึ้น */
+  background:rgba(0, 0, 0, 0.35);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -117,7 +231,7 @@ button:active{transform:scale(.96);}
   left:0;
 }
 .song-cover .play-btn svg{
-  width:20px;           /* ขยายขนาดไอคอนเล่นเพลง */
+  width:20px;
   height:20px;
   fill:#fff;
   filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));
@@ -236,53 +350,3 @@ button:active{transform:scale(.96);}
 .login-card p{margin:0 0 20px;color:var(--text-dim);font-size:13px;}
 .spinner{width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
-
-/* ---------- Playlist Dropdown Style ---------- */
-.playlist-wrapper {
-  max-width: 1080px;
-  margin: 0 auto 12px;
-  padding: 0 16px;
-}
-
-.playlist-header-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: transparent;
-  border: none;
-  padding: 8px 0;
-  color: var(--text);
-  outline: none;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-}
-
-.playlist-header-title {
-  font-size: 17.5px;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-}
-
-.dropdown-icon {
-  transition: transform 0.25s ease;
-}
-
-.dropdown-icon.is-closed {
-  transform: rotate(-90deg); /* หมุนลูกศรเมื่อปิด */
-}
-
-.playlist-content-box {
-  transition: all 0.3s ease;
-  overflow: hidden;
-  max-height: 2000px; /* ความสูงสูงสุดเมื่อเปิด */
-  opacity: 1;
-}
-
-.playlist-content-box.is-closed {
-  max-height: 0;
-  opacity: 0;
-  margin: 0;
-  padding: 0;
-  pointer-events: none;
-}
