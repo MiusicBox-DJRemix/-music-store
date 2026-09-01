@@ -97,7 +97,13 @@
       <div id="modalDesc" style="font-size:14px;color:var(--text-dim);margin-bottom:16px;line-height:1.6;"></div>
       <div style="font-size:20px;font-weight:800;color:var(--success);margin-bottom:16px;" id="modalPrice"></div>
       <div style="display:flex;gap:10px;">
-        <button class="btn secondary" id="modalPlayBtn" style="flex:1;">▶ ฟังเพลง</button>
+        <button class="btn secondary" id="modalPlayBtn" data-play="" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <span id="modalPlayIconWrap" style="display:inline-flex;width:14px;height:14px;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
+            <svg id="modalPlayIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <div class="spinner" id="modalPlaySpinner" style="display:none;width:14px;height:14px;border-width:2px;"></div>
+          </span>
+          <span id="modalPlayLabel">ฟังเพลง</span>
+        </button>
         <button class="btn whatsapp" id="modalBuyBtn" style="flex:1;">สนใจซื้อเพลง</button>
       </div>
     </div>
@@ -124,3 +130,4 @@
   <script type="module" src="app-user.js"></script>
 </body>
 </html>
+
