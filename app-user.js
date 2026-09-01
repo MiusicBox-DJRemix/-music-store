@@ -202,7 +202,7 @@ function unlockAudio() {
 
 // ---- ไอคอน: สามเหลี่ยม (เล่น) / สี่เหลี่ยม (กำลังเล่นอยู่ กดเพื่อหยุด) ----
 function playIconPath() { return '<path d="M8 5v14l11-7z"/>'; }
-function stopIconPath() { return '<rect x="6" y="5" width="4" height="20"/><rect x="14" y="5" width="4" height="14"/>'; }
+function stopIconPath() { return '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'; }
 
 function setPlayerIcon(playing) {
   document.getElementById("playerIcon").innerHTML = playing ? stopIconPath() : playIconPath();
@@ -226,7 +226,7 @@ function updatePlayButtonsUI() {
       spinner = document.createElement("div");
       spinner.className = "spinner mini-play-spinner";
       // ขนาดวงกลมหมุนของปุ่มเล่นเพลง (การ์ดเพลง/playlist) — แก้ตัวเลข width/height/border-width ตรงนี้เพื่อปรับขนาด
-      spinner.style.cssText = "width:40px;height:40px;border-width:3px;display:none;";
+      spinner.style.cssText = "width:20px;height:20px;border-width:3px;display:none;";
       btn.appendChild(spinner);
     }
     if (id === loadingId) {
@@ -368,5 +368,8 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+
+
+
 
 
