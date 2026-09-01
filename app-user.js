@@ -58,7 +58,7 @@ async function init() {
   const siteNameEl = document.getElementById("siteName");
   if (siteNameEl) siteNameEl.textContent = STATE.settings.website_name || "Music Store";
   document.title = STATE.settings.website_name || "Music Store";
-  
+
   if (STATE.settings.meta_description) {
     const metaTag = document.querySelector('meta[name="description"]');
     if (metaTag) metaTag.setAttribute("content", STATE.settings.meta_description);
@@ -74,6 +74,7 @@ async function init() {
   renderDjRow();
   renderPlaylists();
   renderSongGrid();
+  togglePlaylistsVisibility();
 }
 
 function renderCategoryChips() {
@@ -136,10 +137,14 @@ function renderSongGrid() {
   const grid = document.getElementById("songGrid");
   const empty = document.getElementById("emptyState");
   if (!grid) return;
-  if (list.length === 0) { 
-    grid.innerHTML = ""; 
-    if (empty) empty.style.display = "block"; 
-    return; 
+  if (list.length === 0) {
+    grid.innerHTML = "";
+    if (empty) {
+      empty.style.display = "block";
+      // ข้อความไม่พบ ต่างกันตามว่ากำลังค้นหาอยู่หรือไม่
+      empty.textContent = STATE.search ? `ไม่พบเพลงที่ค้นหา "${STATE.search}"` : "ไม่พบเพลง";
+    }
+    return;
   }
   if (empty) empty.style.display = "none";
   grid.innerHTML = list.map(s => `
@@ -210,6 +215,13 @@ function renderPlaylists() {
   updatePlayButtonsUI();
 }
 
+// ซ่อน playlist ทั้งหมดตอนกำลังค้นหา (STATE.search ไม่ว่าง), แสดงคืนเมื่อล้างช่องค้นหา
+function togglePlaylistsVisibility() {
+  const container = document.getElementById("playlistsContainer");
+  if (!container) return;
+  container.style.display = STATE.search ? "none" : "";
+}
+
 function findSong(id) { return STATE.songs.find(s => s.id === id); }
 
 function unlockAudio() {
@@ -231,7 +243,7 @@ function setPlayerIcon(playing) {
 function setPlayerLoading(loading) {
   const iconEl = document.getElementById("playerIcon");
   const spinnerEl = document.getElementById("playerSpinner");
-  
+
   if (iconEl) iconEl.style.display = loading ? "none" : "block";
   if (spinnerEl) spinnerEl.style.display = loading ? "block" : "none";
 }
@@ -245,13 +257,13 @@ function updatePlayButtonsUI() {
     const id = btn.getAttribute("data-play");
     let svg = btn.querySelector("svg");
     let spinner = btn.querySelector(".mini-play-spinner");
-    
+
     if (!spinner) {
       spinner = document.createElement("div");
       spinner.className = "spinner mini-play-spinner";
       btn.appendChild(spinner);
     }
-    
+
     if (id === loadingId) {
       if (svg) svg.style.display = "none";
       spinner.style.display = "block";
@@ -361,14 +373,14 @@ AUDIO.addEventListener("timeupdate", () => {
 });
 
 if (seekEl) {
-  seekEl.addEventListener("input", () => { 
-    isSeeking = true; 
+  seekEl.addEventListener("input", () => {
+    isSeeking = true;
     const currTimeEl = document.getElementById("playerCurrentTime");
-    if (currTimeEl) currTimeEl.textContent = formatTime(Number(seekEl.value)); 
+    if (currTimeEl) currTimeEl.textContent = formatTime(Number(seekEl.value));
   });
-  seekEl.addEventListener("change", () => { 
-    AUDIO.currentTime = Number(seekEl.value); 
-    isSeeking = false; 
+  seekEl.addEventListener("change", () => {
+    AUDIO.currentTime = Number(seekEl.value);
+    isSeeking = false;
   });
 }
 
@@ -388,7 +400,7 @@ AUDIO.addEventListener("playing", () => { STATE.currentLoadingId = null; updateP
 function openSongModal(songId) {
   const song = findSong(songId);
   if (!song) return;
-  
+
   const coverEl = document.getElementById("modalCover");
   const nameEl = document.getElementById("modalName");
   const artistEl = document.getElementById("modalArtist");
@@ -405,7 +417,7 @@ function openSongModal(songId) {
   if (djEl) djEl.textContent = song.dj_name ? "DJ: " + song.dj_name : "";
   if (descEl) descEl.textContent = song.description || "";
   if (priceEl) priceEl.textContent = formatPrice(song.price);
-  
+
   if (modalBtn) {
     modalBtn.setAttribute("data-play", songId);
     modalBtn.onclick = () => { unlockAudio(); playSong(songId); };
@@ -427,7 +439,11 @@ if (backdropEl) backdropEl.addEventListener("click", (e) => { if (e.target === e
 
 const searchInputEl = document.getElementById("searchInput");
 if (searchInputEl) {
-  searchInputEl.addEventListener("input", debounce((e) => { STATE.search = e.target.value.trim(); renderSongGrid(); }, 250));
+  searchInputEl.addEventListener("input", debounce((e) => {
+    STATE.search = e.target.value.trim();
+    renderSongGrid();
+    togglePlaylistsVisibility();
+  }, 250));
 }
 
 document.querySelectorAll(".bottom-nav button").forEach(btn => {
@@ -435,12 +451,12 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
     document.querySelectorAll(".bottom-nav button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     const tab = btn.getAttribute("data-tab");
-    if (tab === "home") { 
-      STATE.currentCategory = "all"; 
-      STATE.currentDj = null; 
-      renderCategoryChips(); 
-      renderSongGrid(); 
-      window.scrollTo({ top: 0, behavior: "smooth" }); 
+    if (tab === "home") {
+      STATE.currentCategory = "all";
+      STATE.currentDj = null;
+      renderCategoryChips();
+      renderSongGrid();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "category") {
       const catChips = document.getElementById("categoryChips");
