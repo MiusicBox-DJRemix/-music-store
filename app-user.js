@@ -4,7 +4,12 @@
 import { db } from "./firebase-init.js";
 import { collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const STATE = { songs: [], categories: [], djs: [], playlists: [], settings: {}, currentCategory: "all", currentDj: null, search: "" };
+const STATE = {
+  songs: [], categories: [], djs: [], playlists: [], settings: {},
+  currentCategory: "all", currentDj: null, search: "",
+  currentPlayingId: null,   // id ของเพลงที่กำลังเล่น/พักอยู่ในเครื่องเล่น
+  currentLoadingId: null    // id ของเพลงที่กำลังโหลดอยู่
+};
 const AUDIO = new Audio();
 let audioUnlocked = false;
 
@@ -143,6 +148,7 @@ function renderSongGrid() {
   grid.querySelectorAll(".song-card").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
+  updatePlayButtonsUI();
 }
 
 function renderPlaylists() {
@@ -182,6 +188,7 @@ function renderPlaylists() {
   container.querySelectorAll(".playlist-song-row").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
+  updatePlayButtonsUI();
 }
 
 function findSong(id) { return STATE.songs.find(s => s.id === id); }
@@ -193,23 +200,88 @@ function unlockAudio() {
   audioUnlocked = true;
 }
 
+// ---- ไอคอน: สามเหลี่ยม (เล่น) / สี่เหลี่ยม (กำลังเล่นอยู่ กดเพื่อหยุด) ----
+function playIconPath() { return '<path d="M8 5v14l11-7z"/>'; }
+function stopIconPath() { return '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'; }
+
 function setPlayerIcon(playing) {
-  document.getElementById("playerIcon").innerHTML = playing
-    ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'
-    : '<path d="M8 5v14l11-7z"/>';
+  document.getElementById("playerIcon").innerHTML = playing ? stopIconPath() : playIconPath();
 }
 function setPlayerLoading(loading) {
   document.getElementById("playerIcon").style.display = loading ? "none" : "block";
   document.getElementById("playerSpinner").style.display = loading ? "block" : "none";
 }
 
+// อัปเดตไอคอนของ "ทุกปุ่มฟังเพลง" ในหน้า (การ์ดเพลง, playlist, modal, แถบเล่นเพลงด้านล่าง)
+// ให้ตรงกับสถานะปัจจุบัน: กำลังโหลด = วงกลมหมุน, กำลังเล่น = สี่เหลี่ยม, หยุด/ยังไม่เล่น = สามเหลี่ยม
+function updatePlayButtonsUI() {
+  const playingId = (!AUDIO.paused && !STATE.currentLoadingId) ? STATE.currentPlayingId : null;
+  const loadingId = STATE.currentLoadingId;
+
+  document.querySelectorAll(".play-btn[data-play], .playlist-play-btn[data-play]").forEach(btn => {
+    const id = btn.getAttribute("data-play");
+    let svg = btn.querySelector("svg");
+    let spinner = btn.querySelector(".mini-play-spinner");
+    if (!spinner) {
+      spinner = document.createElement("div");
+      spinner.className = "spinner mini-play-spinner";
+      spinner.style.cssText = "width:12px;height:12px;border-width:2px;display:none;";
+      btn.appendChild(spinner);
+    }
+    if (id === loadingId) {
+      if (svg) svg.style.display = "none";
+      spinner.style.display = "block";
+    } else {
+      spinner.style.display = "none";
+      if (svg) {
+        svg.style.display = "block";
+        svg.innerHTML = id === playingId ? stopIconPath() : playIconPath();
+      }
+    }
+  });
+
+  const modalBtn = document.getElementById("modalPlayBtn");
+  const modalIcon = document.getElementById("modalPlayIcon");
+  const modalSpinner = document.getElementById("modalPlaySpinner");
+  const modalLabel = document.getElementById("modalPlayLabel");
+  if (modalBtn && modalIcon) {
+    const modalId = modalBtn.getAttribute("data-play");
+    if (modalId && modalId === loadingId) {
+      modalIcon.style.display = "none";
+      if (modalSpinner) modalSpinner.style.display = "block";
+      if (modalLabel) modalLabel.textContent = "กำลังโหลด...";
+    } else {
+      if (modalSpinner) modalSpinner.style.display = "none";
+      modalIcon.style.display = "block";
+      const isPlaying = modalId && modalId === playingId;
+      modalIcon.innerHTML = isPlaying ? stopIconPath() : playIconPath();
+      if (modalLabel) modalLabel.textContent = isPlaying ? "หยุดเพลง" : "ฟังเพลง";
+    }
+  }
+
+  setPlayerIcon(playingId !== null);
+  setPlayerLoading(loadingId !== null);
+}
+
 function playSong(songId) {
   const song = findSong(songId);
   if (!song || !song.file_url) { showToast("ไม่พบไฟล์เพลง", "error"); return; }
 
+  // ถ้ากดปุ่มของเพลงเดียวกับที่กำลังเล่น/พักอยู่ -> สลับ เล่น/หยุด แทนการโหลดใหม่
+  if (STATE.currentPlayingId === songId && !STATE.currentLoadingId && AUDIO.src) {
+    if (AUDIO.paused) {
+      AUDIO.play().then(updatePlayButtonsUI).catch(() => {});
+    } else {
+      AUDIO.pause();
+    }
+    updatePlayButtonsUI();
+    return;
+  }
+
   AUDIO.pause();
-  setPlayerIcon(false);
-  setPlayerLoading(true);
+  STATE.currentPlayingId = songId;
+  STATE.currentLoadingId = songId;
+  updatePlayButtonsUI();
 
   document.getElementById("playerCover").src = song.cover_url || "";
   document.getElementById("playerTitle").textContent = song.song_name;
@@ -222,13 +294,21 @@ function playSong(songId) {
   // Cloudinary สตรีมไฟล์โดยตรง เร็วและรองรับ seek ในตัว ไม่ต้องโหลดทั้งไฟล์ก่อนเหมือนระบบเดิม
   AUDIO.src = song.file_url;
   AUDIO.load();
-  AUDIO.play().then(() => { setPlayerIcon(true); setPlayerLoading(false); })
-    .catch(() => { showToast("แตะปุ่มเล่นที่แถบด้านล่างอีกครั้ง"); setPlayerIcon(false); setPlayerLoading(false); });
+  AUDIO.play().then(() => {
+    STATE.currentLoadingId = null;
+    updatePlayButtonsUI();
+  }).catch(() => {
+    showToast("แตะปุ่มเล่นที่แถบด้านล่างอีกครั้ง");
+    STATE.currentLoadingId = null;
+    updatePlayButtonsUI();
+  });
 }
 
 document.getElementById("playerToggle").addEventListener("click", () => {
   unlockAudio();
-  if (AUDIO.paused) { AUDIO.play(); setPlayerIcon(true); } else { AUDIO.pause(); setPlayerIcon(false); }
+  if (!AUDIO.src) return;
+  if (AUDIO.paused) { AUDIO.play().then(updatePlayButtonsUI).catch(() => {}); } else { AUDIO.pause(); }
+  updatePlayButtonsUI();
 });
 
 let isSeeking = false;
@@ -244,7 +324,11 @@ AUDIO.addEventListener("timeupdate", () => {
 });
 seekEl.addEventListener("input", () => { isSeeking = true; document.getElementById("playerCurrentTime").textContent = formatTime(Number(seekEl.value)); });
 seekEl.addEventListener("change", () => { AUDIO.currentTime = Number(seekEl.value); isSeeking = false; });
-AUDIO.addEventListener("ended", () => { setPlayerIcon(false); seekEl.value = 0; });
+AUDIO.addEventListener("ended", () => { STATE.currentPlayingId = null; updatePlayButtonsUI(); seekEl.value = 0; });
+AUDIO.addEventListener("pause", updatePlayButtonsUI);
+AUDIO.addEventListener("play", updatePlayButtonsUI);
+AUDIO.addEventListener("waiting", () => { STATE.currentLoadingId = STATE.currentPlayingId; updatePlayButtonsUI(); });
+AUDIO.addEventListener("playing", () => { STATE.currentLoadingId = null; updatePlayButtonsUI(); });
 
 function openSongModal(songId) {
   const song = findSong(songId);
@@ -255,11 +339,14 @@ function openSongModal(songId) {
   document.getElementById("modalDj").textContent = song.dj_name ? "DJ: " + song.dj_name : "";
   document.getElementById("modalDesc").textContent = song.description || "";
   document.getElementById("modalPrice").textContent = formatPrice(song.price);
-  document.getElementById("modalPlayBtn").onclick = () => { unlockAudio(); playSong(songId); };
+  const modalBtn = document.getElementById("modalPlayBtn");
+  modalBtn.setAttribute("data-play", songId);
+  modalBtn.onclick = () => { unlockAudio(); playSong(songId); };
   document.getElementById("modalBuyBtn").onclick = () => {
     const text = `สวัสดีครับ/ค่ะ\nสนใจซื้อเพลง:\nชื่อเพลง: ${song.song_name}\nDJ: ${song.dj_name || "-"}\nราคา: ${formatPrice(song.price)}`;
     window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
   };
+  updatePlayButtonsUI();
   document.getElementById("songModalBackdrop").classList.add("show");
 }
 document.getElementById("songModalClose").addEventListener("click", () => document.getElementById("songModalBackdrop").classList.remove("show"));
@@ -280,3 +367,4 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+
