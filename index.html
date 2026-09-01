@@ -30,7 +30,14 @@
     <div class="dj-row" id="djRow"></div>
   </div>
 
-  <div id="playlistsContainer"></div>
+  <!-- ส่วน Playlist แบบ Dropdown -->
+  <div class="playlist-wrapper">
+    <button class="playlist-header-btn" id="playlistToggleBtn">
+      <span class="playlist-header-title">Playlists</span>
+      <svg class="dropdown-icon" id="dropdownIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="playlistsContainer" class="playlist-content-box"></div>
+  </div>
 
   <div class="section-title" id="gridTitle">เพลงทั้งหมด</div>
   <div class="song-grid" id="songGrid"></div>
@@ -97,6 +104,22 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- สคริปต์สลับการ เปิด-ปิด Dropdown -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleBtn = document.getElementById('playlistToggleBtn');
+      const container = document.getElementById('playlistsContainer');
+      const icon = document.getElementById('dropdownIcon');
+
+      if (toggleBtn && container) {
+        toggleBtn.addEventListener('click', () => {
+          container.classList.toggle('is-closed');
+          icon.classList.toggle('is-closed');
+        });
+      }
+    });
+  </script>
 
   <script type="module" src="app-user.js"></script>
 </body>
