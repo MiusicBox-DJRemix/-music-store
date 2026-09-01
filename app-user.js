@@ -147,38 +147,63 @@ function renderSongGrid() {
 
 function renderPlaylists() {
   const container = document.getElementById("playlistsContainer");
+  if (!container) return;
   if (STATE.playlists.length === 0) { container.innerHTML = ""; return; }
 
   container.innerHTML = STATE.playlists.map(pl => {
     const songs = STATE.songs.filter(s => s.playlist_id === pl.id);
     if (songs.length === 0) return "";
+    
     return `
-      <div class="playlist-block">
-        <div class="section-title playlist-heading">${escapeHtml(pl.playlist_name)}</div>
-        <div class="playlist-row">
-          ${songs.map(s => `
-            <div class="playlist-song-row" data-id="${s.id}">
-              <div class="playlist-cover">
-                <img src="${s.cover_url || pl.cover_url || ""}">
-                <button class="playlist-play-btn" data-play="${s.id}">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
-                </button>
+      <div class="playlist-item">
+        <button class="playlist-header-btn">
+          <span class="playlist-header-title">🎵 ${escapeHtml(pl.playlist_name)}</span>
+          <svg class="dropdown-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        <div class="playlist-content-box">
+          <div class="playlist-row">
+            ${songs.map(s => `
+              <div class="playlist-song-row" data-id="${s.id}">
+                <div class="playlist-cover">
+                  <img src="${s.cover_url || pl.cover_url || ""}">
+                  <button class="playlist-play-btn" data-play="${s.id}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                </div>
+                <div class="playlist-info">
+                  <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
+                  <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
+                </div>
+                <div class="playlist-item-price">${formatPrice(s.price)}</div>
               </div>
-              <div class="playlist-info">
-                <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
-                <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
-              </div>
-              <div class="playlist-item-price">${formatPrice(s.price)}</div>
-            </div>
-          `).join("")}
+            `).join("")}
+          </div>
         </div>
       </div>
     `;
   }).join("");
 
-  container.querySelectorAll("[data-play]").forEach(el => {
-    el.addEventListener("click", (ev) => { ev.stopPropagation(); unlockAudio(); playSong(el.getAttribute("data-play")); });
+  // ผูก Event ปุ่มกดเปิด-ปิดแยกกันแต่ละ Playlist
+  container.querySelectorAll(".playlist-header-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const parent = btn.closest(".playlist-item");
+      if (parent) {
+        parent.classList.toggle("active");
+      }
+    });
   });
+
+  // Event เล่นเพลง และเปิด Modal
+  container.querySelectorAll("[data-play]").forEach(el => {
+    el.addEventListener("click", (ev) => { 
+      ev.stopPropagation(); 
+      unlockAudio(); 
+      playSong(el.getAttribute("data-play")); 
+    });
+  });
+  
   container.querySelectorAll(".playlist-song-row").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
@@ -219,7 +244,6 @@ function playSong(songId) {
   document.getElementById("playerDuration").textContent = "0:00";
   document.getElementById("playerSeek").value = 0;
 
-  // Cloudinary สตรีมไฟล์โดยตรง เร็วและรองรับ seek ในตัว ไม่ต้องโหลดทั้งไฟล์ก่อนเหมือนระบบเดิม
   AUDIO.src = song.file_url;
   AUDIO.load();
   AUDIO.play().then(() => { setPlayerIcon(true); setPlayerLoading(false); })
@@ -280,3 +304,4 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+
