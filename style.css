@@ -49,6 +49,8 @@ button:active{transform:scale(.96);}
 .playlist-play-btn{position:absolute;inset:0;width:100%;height:100%;border-radius:0;
   background:rgba(0,0,0,.35);border:none;display:flex;align-items:center;
   justify-content:center;box-shadow:none;}
+/* ไอคอนปุ่มเล่นเพลงบนรูปปก playlist — ปรับให้ใหญ่เกือบเท่ารูปเพลง (รูปปกกว้าง/สูง 64px) แก้ตัวเลขนี้เพื่อปรับขนาด */
+.playlist-play-btn svg{width:36px;height:36px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));}
 .playlist-info{flex:1;min-width:0;}
 .playlist-item-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
 .playlist-item-sub{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
@@ -117,8 +119,8 @@ button:active{transform:scale(.96);}
   left:0;
 }
 .song-cover .play-btn svg{
-  width:20px;
-  height:20px;
+  width:40px;           /* ไอคอนปุ่มเล่นเพลงบนรูปปก — ปรับให้ใหญ่เกือบเท่ารูปเพลง (รูปปกกว้าง/สูง 64px) แก้ตัวเลขนี้เพื่อปรับขนาด */
+  height:40px;
   fill:#fff;
   filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
