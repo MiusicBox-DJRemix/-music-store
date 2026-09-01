@@ -215,11 +215,11 @@ function renderPlaylists() {
   updatePlayButtonsUI();
 }
 
-// ซ่อน playlist ทั้งหมดตอนกำลังค้นหา (STATE.search ไม่ว่าง), แสดงคืนเมื่อล้างช่องค้นหา
+// ซ่อน playlist ทั้งหมด (รวมหัวข้อ "เพลย์ลิสต์" และปุ่ม dropdown) ตอนกำลังค้นหา, แสดงคืนเมื่อล้างช่องค้นหา
 function togglePlaylistsVisibility() {
-  const container = document.getElementById("playlistsContainer");
-  if (!container) return;
-  container.style.display = STATE.search ? "none" : "";
+  const wrapper = document.querySelector(".playlist-wrapper");
+  if (!wrapper) return;
+  wrapper.style.display = STATE.search ? "none" : "";
 }
 
 function findSong(id) { return STATE.songs.find(s => s.id === id); }
@@ -473,3 +473,4 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
+
