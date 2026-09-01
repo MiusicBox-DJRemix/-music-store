@@ -236,8 +236,18 @@ button:active{transform:scale(.96);}
 .login-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 22px;}
 .login-card h2{margin:0 0 4px;font-size:22px;}
 .login-card p{margin:0 0 20px;color:var(--text-dim);font-size:13px;}
-/* วงกลมหมุน (loading spinner) ของแถบเล่นเพลงด้านล่าง — แก้ width/height/border ตรงนี้เพื่อปรับขนาดโดยรวม (ปุ่มอื่นๆ override ขนาดเฉพาะจุดของตัวเองผ่าน inline style) */
-.spinner{width:35px;height:35px;border:5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+
+/* ✅ แก้ไขวงกลมหมุน (loading spinner) ให้ขนาด 20px ขอบหนา 2.5px ไม่ไปดันปุ่มสีม่วงขนาด 38px จนยืดเบี้ยว */
+.spinner{
+  width:20px;
+  height:20px;
+  box-sizing:border-box;
+  flex-shrink:0;
+  border:2.5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+}
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ---------- Playlist Dropdown Style ---------- */
