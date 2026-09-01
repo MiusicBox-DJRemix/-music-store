@@ -202,7 +202,7 @@ function unlockAudio() {
 
 // ---- ไอคอน: สามเหลี่ยม (เล่น) / สี่เหลี่ยม (กำลังเล่นอยู่ กดเพื่อหยุด) ----
 function playIconPath() { return '<path d="M8 5v14l11-7z"/>'; }
-function stopIconPath() { return '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'; }
+function stopIconPath() { return '<rect x="6" y="5" width="4" height="20"/><rect x="14" y="5" width="4" height="14"/>'; }
 
 function setPlayerIcon(playing) {
   document.getElementById("playerIcon").innerHTML = playing ? stopIconPath() : playIconPath();
