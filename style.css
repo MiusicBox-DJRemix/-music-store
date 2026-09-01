@@ -37,7 +37,7 @@ button:active{transform:scale(.96);}
 .dj-name{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .section-title{font-size:17.5px;font-weight:800;margin:6px auto 12px;max-width:1080px;padding:0 16px;}
 
-/* ---------- Playlist & Song List: เปลี่ยนเป็นแบบแถวลงมา ---------- */
+/* ---------- Playlist Row (ส่วนบน) ---------- */
 .playlist-block{margin-bottom:8px;max-width:1080px;margin-left:auto;margin-right:auto;}
 .playlist-heading{margin-bottom:6px;}
 .playlist-row{display:flex;flex-direction:column;}
@@ -54,32 +54,100 @@ button:active{transform:scale(.96);}
 .playlist-item-sub{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .playlist-item-price{font-size:12px;font-weight:800;color:var(--success);flex-shrink:0;white-space:nowrap;}
 
-/* ปรับเปลี่ยนจาก Grid เป็น Flex แนวยาวลงมา */
-.song-grid{display:flex;flex-direction:column;gap:10px;padding:0 16px 20px;max-width:1080px;margin:0 auto;}
+/* ---------- Song List: ปรับให้เล็กลงเท่ากันและชิดกันเรียบร้อย ---------- */
+.song-grid{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  padding:0 16px 20px;
+  max-width:1080px;
+  margin:0 auto;
+}
 
-.song-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;
-  display:flex;flex-direction:row;align-items:center;padding:10px 12px;gap:12px;
-  box-shadow:0 2px 8px rgba(0,0,0,.18);transition:transform .15s ease,box-shadow .15s ease;}
-.song-card:active{transform:scale(.98);}
+.song-card{
+  background:transparent;
+  border:none;
+  border-bottom:1px solid var(--border);
+  border-radius:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  padding:9px 0;
+  gap:12px;
+  box-shadow:none;
+  transition:background .15s ease;
+}
+.song-card:active{
+  transform:none;
+  background:var(--surface-2);
+}
 
-.song-cover{width:56px;height:56px;flex-shrink:0;border-radius:10px;position:relative;background:var(--surface-2);overflow:hidden;}
-.song-cover::before{display:none;} /* ยกเลิกอัตราส่วน 1:1 เดิม */
+.song-cover{
+  width:46px;
+  height:46px;
+  flex-shrink:0;
+  border-radius:8px;
+  position:relative;
+  background:var(--surface-2);
+  overflow:hidden;
+}
+.song-cover::before{display:none;}
 .song-cover img{position:static;width:100%;height:100%;object-fit:cover;}
-.song-cover .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:28px;height:28px;
-  border-radius:50%;background:rgba(124,92,255,.94);display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 6px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);}
-.song-cover .play-btn svg{width:14px;height:14px;}
 
-.song-info{padding:0;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;}
-.song-name{font-size:14px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
-.song-artist{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.song-dj{font-size:11px;color:var(--accent-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+.song-cover .play-btn{
+  position:absolute;
+  bottom:2px;
+  right:2px;
+  top:auto;
+  left:auto;
+  transform:none;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:rgba(124,92,255,.95);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.4);
+  border:1.5px solid rgba(255,255,255,.25);
+}
+.song-cover .play-btn svg{width:10px;height:10px;}
 
-.song-footer{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;margin-top:0;gap:4px;flex-shrink:0;}
+.song-info{
+  padding:0;
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.song-name{font-size:13.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+.song-artist{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.song-dj{font-size:11px;color:var(--accent-2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+
+.song-footer{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-end;
+  margin-top:0;
+  gap:8px;
+  flex-shrink:0;
+}
 .song-price{font-size:12px;font-weight:800;color:var(--success);white-space:nowrap;}
-.buy-btn{font-size:11px;font-weight:700;background:var(--surface-2);border:1px solid var(--border);padding:6px 12px;border-radius:999px;color:var(--text);white-space:nowrap;}
+.buy-btn{
+  font-size:11px;
+  font-weight:700;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  padding:5px 10px;
+  border-radius:999px;
+  color:var(--text);
+  white-space:nowrap;
+}
 
-/* ---------- Element อื่นๆ (คงเดิม) ---------- */
+/* ---------- Element อื่นๆ ---------- */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(23,26,35,.95);backdrop-filter:blur(10px);
   border-top:1px solid var(--border);display:flex;padding-bottom:var(--safe-bottom);}
 .bottom-nav button{flex:1;background:none;border:none;padding:10px 0 8px;color:var(--text-dim);
@@ -159,3 +227,4 @@ button:active{transform:scale(.96);}
 .login-card p{margin:0 0 20px;color:var(--text-dim);font-size:13px;}
 .spinner{width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
