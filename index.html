@@ -98,9 +98,11 @@
       <div style="font-size:20px;font-weight:800;color:var(--success);margin-bottom:16px;" id="modalPrice"></div>
       <div style="display:flex;gap:10px;">
         <button class="btn secondary" id="modalPlayBtn" data-play="" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;">
-          <span id="modalPlayIconWrap" style="display:inline-flex;width:14px;height:14px;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
+          <!-- กล่องครอบไอคอน/สปินเนอร์ปุ่มฟังเพลงใน modal: ขนาดกล่องขยายตามสปินเนอร์ (24px) เพื่อไม่ให้ล้นออกนอกปุ่ม -->
+          <span id="modalPlayIconWrap" style="display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;position:relative;flex-shrink:0;">
             <svg id="modalPlayIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <div class="spinner" id="modalPlaySpinner" style="display:none;width:14px;height:14px;border-width:2px;"></div>
+            <!-- ขนาดวงกลมหมุนปุ่ม modal — แก้ width/height/border-width ตรงนี้เพื่อปรับขนาด -->
+            <div class="spinner" id="modalPlaySpinner" style="display:none;width:24px;height:24px;border-width:4px;"></div>
           </span>
           <span id="modalPlayLabel">ฟังเพลง</span>
         </button>
@@ -130,4 +132,3 @@
   <script type="module" src="app-user.js"></script>
 </body>
 </html>
-
