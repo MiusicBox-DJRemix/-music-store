@@ -155,16 +155,20 @@ function renderPlaylists() {
     return `
       <div class="playlist-block">
         <div class="section-title playlist-heading">${escapeHtml(pl.playlist_name)}</div>
-        <div class="playlist-row" data-playlist="${pl.id}">
+        <div class="playlist-row">
           ${songs.map(s => `
-            <div class="playlist-item" data-id="${s.id}">
+            <div class="playlist-song-row" data-id="${s.id}">
               <div class="playlist-cover">
                 <img src="${s.cover_url || pl.cover_url || ""}">
                 <button class="playlist-play-btn" data-play="${s.id}">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
                 </button>
               </div>
-              <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
+              <div class="playlist-info">
+                <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
+                <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
+              </div>
+              <div class="playlist-item-price">${formatPrice(s.price)}</div>
             </div>
           `).join("")}
         </div>
@@ -175,7 +179,7 @@ function renderPlaylists() {
   container.querySelectorAll("[data-play]").forEach(el => {
     el.addEventListener("click", (ev) => { ev.stopPropagation(); unlockAudio(); playSong(el.getAttribute("data-play")); });
   });
-  container.querySelectorAll(".playlist-item").forEach(el => {
+  container.querySelectorAll(".playlist-song-row").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
 }
@@ -276,5 +280,3 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
-
-  
