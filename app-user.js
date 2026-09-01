@@ -226,7 +226,7 @@ function updatePlayButtonsUI() {
       spinner = document.createElement("div");
       spinner.className = "spinner mini-play-spinner";
       // ขนาดวงกลมหมุนของปุ่มเล่นเพลง (การ์ดเพลง/playlist) — แก้ตัวเลข width/height/border-width ตรงนี้เพื่อปรับขนาด
-      spinner.style.cssText = "width:20px;height:20px;border-width:3px;display:none;";
+      spinner.style.cssText = "width:20px;height:20px;border-width:2px;display:none;";
       btn.appendChild(spinner);
     }
     if (id === loadingId) {
@@ -344,7 +344,7 @@ function openSongModal(songId) {
   modalBtn.setAttribute("data-play", songId);
   modalBtn.onclick = () => { unlockAudio(); playSong(songId); };
   document.getElementById("modalBuyBtn").onclick = () => {
-    const text = `สวัสดีครับ/ค่ะ\nสนใจซื้อเพลง:\nชื่อเพลง: ${song.song_name}\nDJ: ${song.dj_name || "-"}\nราคา: ${formatPrice(song.price)}`;
+    const text = `สวัสดีครับ\nสนใจซื้อเพลง:\nชื่อเพลง: ${song.song_name}\nDJ: ${song.dj_name || "-"}\nราคา: ${formatPrice(song.price)}`;
     window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
   };
   updatePlayButtonsUI();
