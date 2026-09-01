@@ -10,24 +10,30 @@ let audioUnlocked = false;
 
 function showToast(message, type) {
   const el = document.getElementById("toast");
+  if (!el) return;
   el.textContent = message;
   el.className = "toast show" + (type ? " " + type : "");
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => { el.className = "toast"; }, 2600);
 }
+
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+
 function formatPrice(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
+
 function formatTime(sec) {
   if (!isFinite(sec) || sec < 0) return "0:00";
   const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
   return m + ":" + (s < 10 ? "0" : "") + s;
 }
+
 function buildWhatsAppLink(number, text) {
   const clean = String(number || "").replace(/[^0-9]/g, "");
   return "https://wa.me/" + clean + "?text=" + encodeURIComponent(text);
 }
+
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 
 async function init() {
@@ -44,16 +50,20 @@ async function init() {
   STATE.playlists = playlistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   STATE.settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
-  document.getElementById("siteName").textContent = STATE.settings.website_name || "Music Store";
+  const siteNameEl = document.getElementById("siteName");
+  if (siteNameEl) siteNameEl.textContent = STATE.settings.website_name || "Music Store";
   document.title = STATE.settings.website_name || "Music Store";
+  
   if (STATE.settings.meta_description) {
     const metaTag = document.querySelector('meta[name="description"]');
     if (metaTag) metaTag.setAttribute("content", STATE.settings.meta_description);
   }
   if (STATE.settings.website_logo) {
     const logo = document.getElementById("siteLogo");
-    logo.src = STATE.settings.website_logo;
-    logo.style.display = "block";
+    if (logo) {
+      logo.src = STATE.settings.website_logo;
+      logo.style.display = "block";
+    }
   }
   renderCategoryChips();
   renderDjRow();
@@ -63,6 +73,7 @@ async function init() {
 
 function renderCategoryChips() {
   const wrap = document.getElementById("categoryChips");
+  if (!wrap) return;
   let html = `<div class="chip${STATE.currentCategory === "all" ? " active" : ""}" data-cat="all">ทั้งหมด</div>`;
   STATE.categories.forEach(c => {
     html += `<div class="chip${STATE.currentCategory === c.id ? " active" : ""}" data-cat="${c.id}">${escapeHtml(c.category_name)}</div>`;
@@ -80,6 +91,7 @@ function renderCategoryChips() {
 
 function renderDjRow() {
   const wrap = document.getElementById("djRow");
+  if (!wrap) return;
   wrap.innerHTML = STATE.djs.map(d =>
     `<div class="dj-item" data-dj="${d.id}">
       <img class="dj-avatar" src="${d.image_url || ""}">
@@ -92,7 +104,8 @@ function renderDjRow() {
       STATE.currentCategory = "all";
       renderCategoryChips();
       renderSongGrid();
-      document.getElementById("gridTitle").scrollIntoView({ behavior: "smooth" });
+      const titleEl = document.getElementById("gridTitle");
+      if (titleEl) titleEl.scrollIntoView({ behavior: "smooth" });
     });
   });
 }
@@ -117,13 +130,18 @@ function renderSongGrid() {
   const list = getFilteredSongs();
   const grid = document.getElementById("songGrid");
   const empty = document.getElementById("emptyState");
-  if (list.length === 0) { grid.innerHTML = ""; empty.style.display = "block"; return; }
-  empty.style.display = "none";
+  if (!grid) return;
+  if (list.length === 0) { 
+    grid.innerHTML = ""; 
+    if (empty) empty.style.display = "block"; 
+    return; 
+  }
+  if (empty) empty.style.display = "none";
   grid.innerHTML = list.map(s => `
     <div class="song-card" data-id="${s.id}">
       <div class="song-cover">
         <img src="${s.cover_url || ""}">
-        <button class="play-btn" data-play="${s.id}"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
+        <button type="button" class="play-btn" data-play="${s.id}"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
       </div>
       <div class="song-info">
         <div class="song-name">${escapeHtml(s.song_name)}</div>
@@ -145,6 +163,9 @@ function renderSongGrid() {
   });
 }
 
+// ---------------------------------------------------
+// Render Playlists พร้อมระบบ Toggle แบบสมบูรณ์
+// ---------------------------------------------------
 function renderPlaylists() {
   const container = document.getElementById("playlistsContainer");
   if (!container) return;
@@ -156,7 +177,7 @@ function renderPlaylists() {
     
     return `
       <div class="playlist-item">
-        <button class="playlist-header-btn">
+        <button type="button" class="playlist-header-btn">
           <span class="playlist-header-title">🎵 ${escapeHtml(pl.playlist_name)}</span>
           <svg class="dropdown-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M6 9l6 6 6-6"/>
@@ -168,7 +189,7 @@ function renderPlaylists() {
               <div class="playlist-song-row" data-id="${s.id}">
                 <div class="playlist-cover">
                   <img src="${s.cover_url || pl.cover_url || ""}">
-                  <button class="playlist-play-btn" data-play="${s.id}">
+                  <button type="button" class="playlist-play-btn" data-play="${s.id}">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
                   </button>
                 </div>
@@ -185,9 +206,11 @@ function renderPlaylists() {
     `;
   }).join("");
 
-  // ผูก Event ปุ่มกดเปิด-ปิดแยกกันแต่ละ Playlist
+  // ผูก Event ปุ่มเปิด-ปิด Dropdown แยกกันอิสระ
   container.querySelectorAll(".playlist-header-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const parent = btn.closest(".playlist-item");
       if (parent) {
         parent.classList.toggle("active");
@@ -195,7 +218,7 @@ function renderPlaylists() {
     });
   });
 
-  // Event เล่นเพลง และเปิด Modal
+  // Event เล่นเพลง
   container.querySelectorAll("[data-play]").forEach(el => {
     el.addEventListener("click", (ev) => { 
       ev.stopPropagation(); 
@@ -204,6 +227,7 @@ function renderPlaylists() {
     });
   });
   
+  // Event เปิด Modal เพลง
   container.querySelectorAll(".playlist-song-row").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
@@ -219,13 +243,18 @@ function unlockAudio() {
 }
 
 function setPlayerIcon(playing) {
-  document.getElementById("playerIcon").innerHTML = playing
+  const icon = document.getElementById("playerIcon");
+  if (!icon) return;
+  icon.innerHTML = playing
     ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'
     : '<path d="M8 5v14l11-7z"/>';
 }
+
 function setPlayerLoading(loading) {
-  document.getElementById("playerIcon").style.display = loading ? "none" : "block";
-  document.getElementById("playerSpinner").style.display = loading ? "block" : "none";
+  const icon = document.getElementById("playerIcon");
+  const spinner = document.getElementById("playerSpinner");
+  if (icon) icon.style.display = loading ? "none" : "block";
+  if (spinner) spinner.style.display = loading ? "block" : "none";
 }
 
 function playSong(songId) {
@@ -236,13 +265,21 @@ function playSong(songId) {
   setPlayerIcon(false);
   setPlayerLoading(true);
 
-  document.getElementById("playerCover").src = song.cover_url || "";
-  document.getElementById("playerTitle").textContent = song.song_name;
-  document.getElementById("playerSub").textContent = song.dj_name || song.artist || "";
-  document.getElementById("playerBar").classList.add("show");
-  document.getElementById("playerCurrentTime").textContent = "0:00";
-  document.getElementById("playerDuration").textContent = "0:00";
-  document.getElementById("playerSeek").value = 0;
+  const cover = document.getElementById("playerCover");
+  const title = document.getElementById("playerTitle");
+  const sub = document.getElementById("playerSub");
+  const bar = document.getElementById("playerBar");
+  const curTime = document.getElementById("playerCurrentTime");
+  const durTime = document.getElementById("playerDuration");
+  const seek = document.getElementById("playerSeek");
+
+  if (cover) cover.src = song.cover_url || "";
+  if (title) title.textContent = song.song_name;
+  if (sub) sub.textContent = song.dj_name || song.artist || "";
+  if (bar) bar.classList.add("show");
+  if (curTime) curTime.textContent = "0:00";
+  if (durTime) durTime.textContent = "0:00";
+  if (seek) seek.value = 0;
 
   AUDIO.src = song.file_url;
   AUDIO.load();
@@ -250,58 +287,108 @@ function playSong(songId) {
     .catch(() => { showToast("แตะปุ่มเล่นที่แถบด้านล่างอีกครั้ง"); setPlayerIcon(false); setPlayerLoading(false); });
 }
 
-document.getElementById("playerToggle").addEventListener("click", () => {
-  unlockAudio();
-  if (AUDIO.paused) { AUDIO.play(); setPlayerIcon(true); } else { AUDIO.pause(); setPlayerIcon(false); }
-});
+const toggleBtn = document.getElementById("playerToggle");
+if (toggleBtn) {
+  toggleBtn.addEventListener("click", () => {
+    unlockAudio();
+    if (AUDIO.paused) { AUDIO.play(); setPlayerIcon(true); } else { AUDIO.pause(); setPlayerIcon(false); }
+  });
+}
 
 let isSeeking = false;
 const seekEl = document.getElementById("playerSeek");
 AUDIO.addEventListener("loadedmetadata", () => {
-  document.getElementById("playerDuration").textContent = formatTime(AUDIO.duration);
-  seekEl.max = AUDIO.duration || 0;
+  const durTime = document.getElementById("playerDuration");
+  if (durTime) durTime.textContent = formatTime(AUDIO.duration);
+  if (seekEl) seekEl.max = AUDIO.duration || 0;
 });
 AUDIO.addEventListener("timeupdate", () => {
   if (isSeeking) return;
-  document.getElementById("playerCurrentTime").textContent = formatTime(AUDIO.currentTime);
-  seekEl.value = AUDIO.currentTime;
+  const curTime = document.getElementById("playerCurrentTime");
+  if (curTime) curTime.textContent = formatTime(AUDIO.currentTime);
+  if (seekEl) seekEl.value = AUDIO.currentTime;
 });
-seekEl.addEventListener("input", () => { isSeeking = true; document.getElementById("playerCurrentTime").textContent = formatTime(Number(seekEl.value)); });
-seekEl.addEventListener("change", () => { AUDIO.currentTime = Number(seekEl.value); isSeeking = false; });
-AUDIO.addEventListener("ended", () => { setPlayerIcon(false); seekEl.value = 0; });
+if (seekEl) {
+  seekEl.addEventListener("input", () => { 
+    isSeeking = true; 
+    const curTime = document.getElementById("playerCurrentTime");
+    if (curTime) curTime.textContent = formatTime(Number(seekEl.value)); 
+  });
+  seekEl.addEventListener("change", () => { 
+    AUDIO.currentTime = Number(seekEl.value); 
+    isSeeking = false; 
+  });
+}
+AUDIO.addEventListener("ended", () => { setPlayerIcon(false); if (seekEl) seekEl.value = 0; });
 
 function openSongModal(songId) {
   const song = findSong(songId);
   if (!song) return;
-  document.getElementById("modalCover").src = song.cover_url || "";
-  document.getElementById("modalName").textContent = song.song_name;
-  document.getElementById("modalArtist").textContent = song.artist || "";
-  document.getElementById("modalDj").textContent = song.dj_name ? "DJ: " + song.dj_name : "";
-  document.getElementById("modalDesc").textContent = song.description || "";
-  document.getElementById("modalPrice").textContent = formatPrice(song.price);
-  document.getElementById("modalPlayBtn").onclick = () => { unlockAudio(); playSong(songId); };
-  document.getElementById("modalBuyBtn").onclick = () => {
-    const text = `สวัสดีครับ/ค่ะ\nสนใจซื้อเพลง:\nชื่อเพลง: ${song.song_name}\nDJ: ${song.dj_name || "-"}\nราคา: ${formatPrice(song.price)}`;
-    window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
-  };
-  document.getElementById("songModalBackdrop").classList.add("show");
-}
-document.getElementById("songModalClose").addEventListener("click", () => document.getElementById("songModalBackdrop").classList.remove("show"));
-document.getElementById("songModalBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove("show"); });
+  
+  const mCover = document.getElementById("modalCover");
+  const mName = document.getElementById("modalName");
+  const mArtist = document.getElementById("modalArtist");
+  const mDj = document.getElementById("modalDj");
+  const mDesc = document.getElementById("modalDesc");
+  const mPrice = document.getElementById("modalPrice");
+  const mPlay = document.getElementById("modalPlayBtn");
+  const mBuy = document.getElementById("modalBuyBtn");
+  const backdrop = document.getElementById("songModalBackdrop");
 
-document.getElementById("searchInput").addEventListener("input", debounce((e) => { STATE.search = e.target.value.trim(); renderSongGrid(); }, 250));
+  if (mCover) mCover.src = song.cover_url || "";
+  if (mName) mName.textContent = song.song_name;
+  if (mArtist) mArtist.textContent = song.artist || "";
+  if (mDj) mDj.textContent = song.dj_name ? "DJ: " + song.dj_name : "";
+  if (mDesc) mDesc.textContent = song.description || "";
+  if (mPrice) mPrice.textContent = formatPrice(song.price);
+  
+  if (mPlay) {
+    mPlay.onclick = () => { unlockAudio(); playSong(songId); };
+  }
+  if (mBuy) {
+    mBuy.onclick = () => {
+      const text = `สวัสดีครับ/ค่ะ\nสนใจซื้อเพลง:\nชื่อเพลง: ${song.song_name}\nDJ: ${song.dj_name || "-"}\nราคา: ${formatPrice(song.price)}`;
+      window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+    };
+  }
+  if (backdrop) backdrop.classList.add("show");
+}
+
+const modalClose = document.getElementById("songModalClose");
+const modalBackdrop = document.getElementById("songModalBackdrop");
+
+if (modalClose) modalClose.addEventListener("click", () => modalBackdrop && modalBackdrop.classList.remove("show"));
+if (modalBackdrop) modalBackdrop.addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove("show"); });
+
+const searchInput = document.getElementById("searchInput");
+if (searchInput) {
+  searchInput.addEventListener("input", debounce((e) => { STATE.search = e.target.value.trim(); renderSongGrid(); }, 250));
+}
 
 document.querySelectorAll(".bottom-nav button").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".bottom-nav button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     const tab = btn.getAttribute("data-tab");
-    if (tab === "home") { STATE.currentCategory = "all"; STATE.currentDj = null; renderCategoryChips(); renderSongGrid(); window.scrollTo({ top: 0, behavior: "smooth" }); }
-    else if (tab === "category") document.getElementById("categoryChips").scrollIntoView({ behavior: "smooth" });
-    else if (tab === "dj") document.getElementById("djSection").scrollIntoView({ behavior: "smooth" });
-    else if (tab === "contact") window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, "สวัสดีครับ/ค่ะ ต้องการสอบถามเกี่ยวกับร้านเพลง"), "_blank");
+    if (tab === "home") { 
+      STATE.currentCategory = "all"; 
+      STATE.currentDj = null; 
+      renderCategoryChips(); 
+      renderSongGrid(); 
+      window.scrollTo({ top: 0, behavior: "smooth" }); 
+    }
+    else if (tab === "category") {
+      const catEl = document.getElementById("categoryChips");
+      if (catEl) catEl.scrollIntoView({ behavior: "smooth" });
+    }
+    else if (tab === "dj") {
+      const djEl = document.getElementById("djSection");
+      if (djEl) djEl.scrollIntoView({ behavior: "smooth" });
+    }
+    else if (tab === "contact") {
+      window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, "สวัสดีครับ/ค่ะ ต้องการสอบถามเกี่ยวกับร้านเพลง"), "_blank");
+    }
   });
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
-
