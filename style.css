@@ -59,7 +59,7 @@ html, body {
 }
 
 body {
-  padding-bottom: calc(96px + var(--safe-bottom));
+  padding-bottom: calc(110px + var(--safe-bottom));
 }
 
 a {
@@ -321,7 +321,7 @@ button:active {
   pointer-events: none;
 }
 
-/* ---------- Playlist Row (ปรับระยะห่างเป็น 0px) ---------- */
+/* ---------- Playlist Row ---------- */
 .playlist-block {
   margin-bottom: 0px;
   max-width: 1080px;
@@ -332,7 +332,7 @@ button:active {
 .playlist-row {
   display: flex;
   flex-direction: column;
-  gap: 0px !important; /* ปรับช่องว่างระหว่างแถวเพลย์ลิสต์เป็น 0px */
+  gap: 0px !important;
 }
 
 .playlist-song-row {
@@ -340,7 +340,7 @@ button:active {
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  border-radius: 0px; /* ปรับเป็นมุมเหลี่ยมเพื่อให้ต่อติดเป็นแถวเรียบเนียน */
+  border-radius: 0px;
   background: transparent;
   border-bottom: 1px solid var(--border);
   transition: all 0.2s ease;
@@ -444,11 +444,11 @@ button:active {
   border-radius: var(--radius-full);
 }
 
-/* ---------- Song List (ปรับช่องว่างระหว่างแถวเพลงเป็น 0px เหมือนเพลย์ลิสต์) ---------- */
+/* ---------- Song List ---------- */
 .song-grid {
   display: flex;
   flex-direction: column;
-  gap: 0px !important; /* ปรับช่องว่างระหว่างการ์ดเพลงเป็น 0px */
+  gap: 0px !important;
   padding: 0 16px 20px;
   max-width: 1080px;
   margin: 0 auto;
@@ -457,19 +457,18 @@ button:active {
 .song-card {
   background: var(--surface);
   border: none;
-  border-bottom: 1px solid var(--border); /* ใช้เส้นขอบคั่นระหว่างแถวแทน */
-  border-radius: 0px !important; /* ปรับมุมเหลี่ยมเพื่อให้ชิดติดกันอย่างเรียบเนียน */
+  border-bottom: 1px solid var(--border);
+  border-radius: 0px !important;
   overflow: hidden;
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 6px 10px; /* ลด Padding ให้แนบกะทัดรัด */
+  padding: 6px 10px;
   gap: 10px;
   box-shadow: none;
   transition: all 0.2s ease;
 }
 
-/* ให้การ์ดเพลงใบแรกและใบสุดท้ายมีมุมโค้งมนเข้ากับกรอบใหญ่ (Optional) */
 .song-card:first-child {
   border-top-left-radius: var(--radius-sm) !important;
   border-top-right-radius: var(--radius-sm) !important;
@@ -667,24 +666,24 @@ button:active {
   color: var(--accent);
 }
 
-/* ---------- Music Player Bar ---------- */
+/* ---------- Music Player Bar (Mini Floating Popup) ---------- */
 .player-bar {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(68px + var(--safe-bottom) + 8px);
+  bottom: calc(58px + var(--safe-bottom));
   z-index: 60;
-  background: rgba(28, 34, 52, 0.9);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(19, 23, 34, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius);
-  padding: 10px 14px 10px;
+  border-radius: 14px;
+  padding: 8px 12px 6px;
   display: none;
   flex-direction: column;
-  gap: 4px;
-  box-shadow: var(--shadow-lg), 0 0 20px var(--accent-glow);
-  max-width: 800px;
+  gap: 2px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px var(--accent-glow);
+  max-width: 500px;
   margin: 0 auto;
 }
 
@@ -707,17 +706,17 @@ button:active {
 .player-top {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .player-bar img {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
   background: var(--surface);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .player-meta {
@@ -726,16 +725,17 @@ button:active {
 }
 
 .player-meta .t1 {
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text);
+  line-height: 1.2;
 }
 
 .player-meta .t2 {
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -746,8 +746,8 @@ button:active {
 
 .player-bar .ctrl {
   background: linear-gradient(135deg, var(--accent), #7c3aed);
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: none;
   display: flex;
@@ -762,17 +762,22 @@ button:active {
   transform: scale(1.05);
 }
 
+.player-bar .ctrl svg {
+  width: 13px;
+  height: 13px;
+}
+
 .player-seek-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .player-seek-row .time {
-  font-size: 10.5px;
+  font-size: 9.5px;
   color: var(--text-dim);
-  width: 32px;
+  width: 24px;
   flex-shrink: 0;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -783,32 +788,32 @@ button:active {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 20px;
+  height: 14px;
   background: transparent;
   margin: 0;
   cursor: pointer;
 }
 
 .player-seek-row input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 4px;
+  height: 3px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.15);
 }
 
 .player-seek-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #fff;
-  margin-top: -4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 8px var(--accent);
+  margin-top: -3.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 6px var(--accent);
   transition: transform 0.1s ease;
 }
 
 .player-seek-row input[type="range"]:active::-webkit-slider-thumb {
-  transform: scale(1.3);
+  transform: scale(1.2);
 }
 
 /* ---------- Common Buttons & Elements ---------- */
