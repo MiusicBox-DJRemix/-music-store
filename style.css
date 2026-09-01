@@ -490,8 +490,8 @@ button:active {
 }
 
 .song-cover {
-  width: 55px;
-  height: 55px;
+  width: 55px!important;
+  height: 55px!important;
   flex-shrink: 0;
   border-radius: 8px;
   position: relative;
