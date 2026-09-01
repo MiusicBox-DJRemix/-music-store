@@ -43,18 +43,18 @@ button:active{transform:scale(.96);}
 .playlist-row{display:flex;flex-direction:column;}
 .playlist-song-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);}
 .playlist-song-row:active{background:var(--surface-2);}
-.playlist-cover{width:56px;height:56px;border-radius:8px;background:var(--surface-2);position:relative;
+.playlist-cover{width:64px;height:64px;border-radius:8px;background:var(--surface-2);position:relative;
   overflow:hidden;flex-shrink:0;}
 .playlist-cover img{width:100%;height:100%;object-fit:cover;}
-.playlist-play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;
-  background:rgba(124,92,255,.95);border:1.5px solid rgba(255,255,255,.3);display:flex;align-items:center;
-  justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.5);}
+.playlist-play-btn{position:absolute;inset:0;width:100%;height:100%;border-radius:0;
+  background:rgba(0,0,0,.35);border:none;display:flex;align-items:center;
+  justify-content:center;box-shadow:none;}
 .playlist-info{flex:1;min-width:0;}
 .playlist-item-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
 .playlist-item-sub{font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .playlist-item-price{font-size:12px;font-weight:800;color:var(--success);flex-shrink:0;white-space:nowrap;}
 
-/* ---------- Song List: ปรับรูปภาพเต็มช่อง และจัดปุ่มเล่นไว้ตรงกลาง ---------- */
+/* ---------- Song List: ขยายรูปใหญ่ขึ้น และปุ่มเล่นใหญ่เท่ารูปภาพ ---------- */
 .song-grid{
   display:flex;
   flex-direction:column;
@@ -73,7 +73,7 @@ button:active{transform:scale(.96);}
   display:flex;
   flex-direction:row;
   align-items:center;
-  padding:9px 0;
+  padding:10px 0;
   gap:12px;
   box-shadow:none;
   transition:background .15s ease;
@@ -84,10 +84,10 @@ button:active{transform:scale(.96);}
 }
 
 .song-cover{
-  width:56px;
-  height:56px;
+  width:64px;           /* ปรับขนาดกรอบรูปภาพให้ใหญ่ขึ้น */
+  height:64px;
   flex-shrink:0;
-  border-radius:8px;
+  border-radius:10px;    /* ปรับมุมมนของกรอบรูป */
   position:relative;
   background:var(--surface-2);
   overflow:hidden;
@@ -102,23 +102,25 @@ button:active{transform:scale(.96);}
 
 .song-cover .play-btn{
   position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  width:26px;
-  height:26px;
-  border-radius:50%;
-  background:rgba(124,92,255,.95);
+  inset:0;              /* ขยายปุ่มครอบคลุมพื้นที่ทั้งหมดของรูป */
+  width:100%;
+  height:100%;
+  border-radius:0;
+  background:rgba(0, 0, 0, 0.35); /* เพิ่มพื้นหลังสีดำจางๆ เพื่อให้เห็นปุ่มชัดขึ้น */
   display:flex;
   align-items:center;
   justify-content:center;
-  box-shadow:0 2px 8px rgba(0,0,0,.5);
-  border:1.5px solid rgba(255,255,255,.3);
+  box-shadow:none;
+  border:none;
+  transform:none;
+  top:0;
+  left:0;
 }
 .song-cover .play-btn svg{
-  width:11px;
-  height:11px;
-  margin-left:1px;
+  width:20px;           /* ขยายขนาดไอคอนเล่นเพลง */
+  height:20px;
+  fill:#fff;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
 .song-info{
