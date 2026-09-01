@@ -226,7 +226,7 @@ function updatePlayButtonsUI() {
       spinner = document.createElement("div");
       spinner.className = "spinner mini-play-spinner";
       // ขนาดวงกลมหมุนของปุ่มเล่นเพลง (การ์ดเพลง/playlist) — แก้ตัวเลข width/height/border-width ตรงนี้เพื่อปรับขนาด
-      spinner.style.cssText = "width:20px;height:20px;border-width:3px;display:none;";
+      spinner.style.cssText = "width:40px;height:40px;border-width:3px;display:none;";
       btn.appendChild(spinner);
     }
     if (id === loadingId) {
