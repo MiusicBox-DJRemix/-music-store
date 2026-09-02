@@ -167,6 +167,7 @@ function renderSongGrid() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
               ${formatPrice(s.price)}
             </span>
+            <span style="color: #888; font-size: 16px; font-weight: bold; letter-spacing: 1px; padding-left: 4px; line-height: 1;">⋮</span>
           </div>
         </div>
       </div>
@@ -238,10 +239,13 @@ function renderPlaylists() {
                   <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
                 </div>
                 <div class="playlist-item-price" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; margin-left: auto;">
-                  <span class="playlist-add-cart" data-add-cart-song="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                    ${formatPrice(s.price)}
-                  </span>
+                  <div style="display: inline-flex; align-items: center; gap: 4px;">
+                    <span class="playlist-add-cart" data-add-cart-song="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                      ${formatPrice(s.price)}
+                    </span>
+                    <span style="color: #888; font-size: 14px; font-weight: bold; line-height: 1; padding-left: 2px;">⋮</span>
+                  </div>
                 </div>
               </div>
             `).join("")}
