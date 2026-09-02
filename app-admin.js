@@ -1,4 +1,4 @@
-// ===================================================
+
 // app-admin.js — หน้า Admin: Login (Firebase Auth) + CRUD (Firestore) + อัปโหลดไฟล์ (Cloudinary)
 // ===================================================
 import { db, auth, uploadToCloudinary } from "./firebase-init.js";
@@ -336,7 +336,7 @@ async function loadPlaylists() {
   if (CACHE.playlists.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มีเพลย์ลิสต์</div>'; return; }
   wrap.innerHTML = CACHE.playlists.map(p => `
     <div class="list-row"><img src="${p.cover_url || ""}">
-    <div class="info"><div class="n1">${escapeHtml(p.playlist_name)}</div><div class="n2">${escapeHtml(p.description || "")}</div></div>
+    <div class="info"><div class="n1">${escapeHtml(p.playlist_name)}</div><div class="n2">${escapeHtml(p.description || "")}${p.price ? ` · ${formatPrice(p.price)}` : ""}</div></div>
     <div class="row-actions"><button class="icon-btn" data-edit="${p.id}">✎</button>
     <button class="icon-btn danger" data-del="${p.id}">🗑</button></div></div>`).join("");
   wrap.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => openEditPlaylist(b.getAttribute("data-edit"))));
@@ -350,6 +350,7 @@ async function loadPlaylists() {
 function resetPlaylistForm() {
   editingPlaylistId = null; pendingPlaylistCoverFile = null; existingPlaylistCoverUrl = "";
   document.getElementById("fPlaylistName").value = ""; document.getElementById("fPlaylistDesc").value = "";
+  document.getElementById("fPlaylistPrice").value = "";
   document.getElementById("playlistCoverInput").value = "";
   document.getElementById("playlistCoverPicker").textContent = "🖼️ แตะเพื่อเลือกรูปปก";
   document.getElementById("playlistCoverPicker").className = "file-picker";
@@ -361,6 +362,7 @@ function openEditPlaylist(id) {
   editingPlaylistId = id; existingPlaylistCoverUrl = p.cover_url || "";
   document.getElementById("playlistFormTitle").textContent = "แก้ไขเพลย์ลิสต์";
   document.getElementById("fPlaylistName").value = p.playlist_name; document.getElementById("fPlaylistDesc").value = p.description || "";
+  document.getElementById("fPlaylistPrice").value = p.price || 0;
   if (existingPlaylistCoverUrl) { document.getElementById("playlistCoverPicker").textContent = "✔ มีรูปปกอยู่แล้ว (แตะเพื่อเปลี่ยนรูปใหม่)"; document.getElementById("playlistCoverPicker").className = "file-picker filled"; }
   document.getElementById("playlistFormBackdrop").classList.add("show");
 }
@@ -382,7 +384,12 @@ document.getElementById("playlistSaveBtn").addEventListener("click", async funct
       const res = await uploadToCloudinary(pendingPlaylistCoverFile);
       coverUrl = res.url;
     }
-    const payload = { playlist_name: name, description: document.getElementById("fPlaylistDesc").value.trim(), cover_url: coverUrl };
+    const payload = {
+      playlist_name: name,
+      description: document.getElementById("fPlaylistDesc").value.trim(),
+      price: Number(document.getElementById("fPlaylistPrice").value || 0),
+      cover_url: coverUrl
+    };
     if (editingPlaylistId) await updateDoc(doc(db, "playlists", editingPlaylistId), payload);
     else { payload.created_at = new Date().toISOString(); await addDoc(collection(db, "playlists"), payload); }
     showToast("บันทึกแล้ว", "success"); document.getElementById("playlistFormBackdrop").classList.remove("show"); loadPlaylists();
@@ -455,7 +462,7 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
     let playlistId = plSel.value;
     let playlistName = plSel.value ? plSel.options[plSel.selectedIndex].text : "";
     if (!playlistId && newPlaylistName) {
-      const newDoc = await addDoc(collection(db, "playlists"), { playlist_name: newPlaylistName, description: "", cover_url: "", created_at: new Date().toISOString() });
+      const newDoc = await addDoc(collection(db, "playlists"), { playlist_name: newPlaylistName, description: "", price: 0, cover_url: "", created_at: new Date().toISOString() });
       playlistId = newDoc.id;
       playlistName = newPlaylistName;
     }
