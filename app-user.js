@@ -238,7 +238,6 @@ function renderPlaylists() {
                   <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
                   <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
                 </div>
-                <!-- ปรับแก้ตรงนี้: ราคาเป็น position:absolute ชิดมุมขวาล่าง 0px ของแถว ไม่แย่งพื้นที่แนวนอนกับชื่อเพลงอีกต่อไป -->
                 <div class="playlist-item-price" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; position: absolute; right: 0; bottom: 0;">
                   <div style="display: inline-flex; align-items: center; gap: 4px;">
                     <span class="playlist-add-cart" data-add-cart-song="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; background: transparent; padding: 0;">
@@ -525,6 +524,13 @@ if (searchInputEl) {
     renderSongGrid();
     togglePlaylistsVisibility();
   }, 250));
+
+  // เพิ่มโค้ดส่วนนี้เพื่อดักจับการกดปุ่ม Enter / ปุ่ม Go บนมือถือเพื่อซ่อนแป้นพิมพ์โดยไม่กระทบส่วนอื่น
+  searchInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      searchInputEl.blur();
+    }
+  });
 }
 
 document.querySelectorAll(".bottom-nav button").forEach(btn => {
