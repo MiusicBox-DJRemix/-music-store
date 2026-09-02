@@ -150,6 +150,7 @@
       <div class="modal-header"><h3 id="playlistFormTitle">เพิ่มเพลย์ลิสต์</h3><button class="modal-close" id="playlistFormClose">✕</button></div>
       <div class="field"><label>ชื่อเพลย์ลิสต์ *</label><input id="fPlaylistName"></div>
       <div class="field"><label>คำอธิบาย</label><textarea id="fPlaylistDesc"></textarea></div>
+      <div class="field"><label>ราคาเพลย์ลิสต์ (LAK — ราคาขายทั้งชุด, ปล่อยว่างหรือ 0 ถ้าไม่ขายทั้งชุด)</label><input id="fPlaylistPrice" type="number" min="0"></div>
       <div class="field">
         <label>รูปปกเพลย์ลิสต์</label>
         <label class="file-picker" id="playlistCoverPicker" for="playlistCoverInput">🖼️ แตะเพื่อเลือกรูปปก</label>
@@ -208,3 +209,4 @@
   <script type="module" src="app-admin.js"></script>
 </body>
 </html>
+
