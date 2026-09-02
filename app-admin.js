@@ -119,10 +119,22 @@ function renderSongList(list) {
   wrap.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => openEditSong(b.getAttribute("data-edit"))));
   wrap.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => confirmDeleteSong(b.getAttribute("data-del"))));
 }
-document.getElementById("songSearch").addEventListener("input", debounce((e) => {
+
+// ฟังก์ชันกรองและแสดงผลรายการเพลง
+const handleSongSearch = (e) => {
   const q = e.target.value.trim().toLowerCase();
   renderSongList(CACHE.songs.filter(s => [s.song_name, s.artist, s.dj_name, s.category_name].join(" ").toLowerCase().includes(q)));
-}, 200));
+};
+
+const searchInputEl = document.getElementById("songSearch");
+searchInputEl.addEventListener("input", debounce(handleSongSearch, 200));
+
+// เพิ่มการดักจับปุ่ม Enter และลูกศร เพื่อซ่อนแป้นพิมพ์บนมือถือ
+searchInputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+    searchInputEl.blur(); // สั่งปิดแป้นพิมพ์
+  }
+});
 
 function resetSongForm() {
   editingSongId = null; pendingSongFile = null; pendingCoverFile = null;
@@ -166,7 +178,6 @@ document.getElementById("songFileInput").addEventListener("change", (e) => {
   document.getElementById("songFilePicker").textContent = "🎵 " + f.name;
   document.getElementById("songFilePicker").className = "file-picker filled";
 
-  // ดึงชื่อเพลงจากชื่อไฟล์อัตโนมัติ (เฉพาะตอนที่ยังไม่ได้แก้ไขเพลงเดิม และช่องชื่อเพลงยังว่างอยู่)
   const nameField = document.getElementById("fSongName");
   if (!editingSongId && !nameField.value.trim()) {
     nameField.value = nameFromFile(f.name);
@@ -417,9 +428,6 @@ document.getElementById("playlistSaveBtn").addEventListener("click", async funct
 let bulkFiles = [];
 let pendingBulkCoverFile = null;
 
-// แก้ไข: เปิดโมดัลทันทีที่กดปุ่ม แล้วค่อยโหลดข้อมูล dropdown ทีหลัง
-// (เดิม: รอโหลด categories/djs/playlists จาก Firestore เสร็จก่อน ค่อยเปิดโมดัล
-//  ทำให้ปุ่มดูเหมือนค้าง/ดีเลย์ไม่คงที่ ขึ้นอยู่กับความเร็วเน็ตตอนนั้น)
 async function openBulkUpload() {
   bulkFiles = []; pendingBulkCoverFile = null;
   document.getElementById("bulkNewPlaylistName").value = "";
@@ -433,15 +441,12 @@ async function openBulkUpload() {
   document.getElementById("bulkProgressWrap").style.display = "none";
   document.getElementById("bulkStatusText").textContent = "";
 
-  // ใส่สถานะ "กำลังโหลด..." ไว้ก่อน กันคนเลือกค่าก่อนข้อมูลมาครบ
   document.getElementById("bulkCategory").innerHTML = '<option value="">กำลังโหลด...</option>';
   document.getElementById("bulkDj").innerHTML = '<option value="">กำลังโหลด...</option>';
   document.getElementById("bulkPlaylist").innerHTML = '<option value="">กำลังโหลด...</option>';
 
-  // เปิดโมดัลทันที ไม่ต้องรอ Firestore
   document.getElementById("bulkUploadBackdrop").classList.add("show");
 
-  // โหลดข้อมูล dropdown หลังจากโมดัลเปิดแล้ว
   const [catSnap, djSnap, playlistSnap] = await Promise.all([
     getDocs(collection(db, "categories")), getDocs(collection(db, "djs")), getDocs(collection(db, "playlists"))
   ]);
@@ -467,7 +472,6 @@ document.getElementById("bulkCoverInput").addEventListener("change", (e) => {
   document.getElementById("bulkCoverPicker").className = "file-picker filled";
 });
 
-// ตัดแค่นามสกุลไฟล์ออก ชื่อเพลงจะเหมือนชื่อไฟล์เดิมทุกตัวอักษร (ไม่ตัด/ไม่แทนที่อักขระใดๆ)
 function cleanFileNameToSongName(fileName) {
   return nameFromFile(fileName);
 }
@@ -484,7 +488,6 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
   document.getElementById("bulkProgressWrap").style.display = "block";
 
   try {
-    // สร้างเพลย์ลิสต์ใหม่ก่อน (ถ้าไม่ได้เลือกจากที่มีอยู่)
     let playlistId = plSel.value;
     let playlistName = plSel.value ? plSel.options[plSel.selectedIndex].text : "";
     if (!playlistId && newPlaylistName) {
@@ -493,12 +496,10 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
       playlistName = newPlaylistName;
     }
 
-    // อัปโหลดรูปปกร่วม (ถ้ามี) ครั้งเดียว ใช้กับทุกเพลง
     let sharedCoverUrl = "";
     if (pendingBulkCoverFile) {
       const coverRes = await uploadToCloudinary(pendingBulkCoverFile);
       sharedCoverUrl = coverRes.url;
-      // อัปเดตรูปปกเพลย์ลิสต์ด้วยถ้ายังไม่มี
       await updateDoc(doc(db, "playlists", playlistId), { cover_url: sharedCoverUrl }).catch(() => {});
     }
 
