@@ -1,4 +1,3 @@
-
 // app-admin.js — หน้า Admin: Login (Firebase Auth) + CRUD (Firestore) + อัปโหลดไฟล์ (Cloudinary)
 // ===================================================
 import { db, auth, uploadToCloudinary } from "./firebase-init.js";
@@ -418,17 +417,10 @@ document.getElementById("playlistSaveBtn").addEventListener("click", async funct
 let bulkFiles = [];
 let pendingBulkCoverFile = null;
 
+// แก้ไข: เปิดโมดัลทันทีที่กดปุ่ม แล้วค่อยโหลดข้อมูล dropdown ทีหลัง
+// (เดิม: รอโหลด categories/djs/playlists จาก Firestore เสร็จก่อน ค่อยเปิดโมดัล
+//  ทำให้ปุ่มดูเหมือนค้าง/ดีเลย์ไม่คงที่ ขึ้นอยู่กับความเร็วเน็ตตอนนั้น)
 async function openBulkUpload() {
-  const [catSnap, djSnap, playlistSnap] = await Promise.all([
-    getDocs(collection(db, "categories")), getDocs(collection(db, "djs")), getDocs(collection(db, "playlists"))
-  ]);
-  CACHE.categories = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  CACHE.djs = djSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  CACHE.playlists = playlistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  populateSelect("bulkCategory", CACHE.categories, "id", "category_name");
-  populateSelect("bulkDj", CACHE.djs, "id", "dj_name");
-  populateSelect("bulkPlaylist", CACHE.playlists, "id", "playlist_name");
-
   bulkFiles = []; pendingBulkCoverFile = null;
   document.getElementById("bulkNewPlaylistName").value = "";
   document.getElementById("bulkPrice").value = "";
@@ -440,7 +432,25 @@ async function openBulkUpload() {
   document.getElementById("bulkCoverPicker").className = "file-picker";
   document.getElementById("bulkProgressWrap").style.display = "none";
   document.getElementById("bulkStatusText").textContent = "";
+
+  // ใส่สถานะ "กำลังโหลด..." ไว้ก่อน กันคนเลือกค่าก่อนข้อมูลมาครบ
+  document.getElementById("bulkCategory").innerHTML = '<option value="">กำลังโหลด...</option>';
+  document.getElementById("bulkDj").innerHTML = '<option value="">กำลังโหลด...</option>';
+  document.getElementById("bulkPlaylist").innerHTML = '<option value="">กำลังโหลด...</option>';
+
+  // เปิดโมดัลทันที ไม่ต้องรอ Firestore
   document.getElementById("bulkUploadBackdrop").classList.add("show");
+
+  // โหลดข้อมูล dropdown หลังจากโมดัลเปิดแล้ว
+  const [catSnap, djSnap, playlistSnap] = await Promise.all([
+    getDocs(collection(db, "categories")), getDocs(collection(db, "djs")), getDocs(collection(db, "playlists"))
+  ]);
+  CACHE.categories = catSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  CACHE.djs = djSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  CACHE.playlists = playlistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  populateSelect("bulkCategory", CACHE.categories, "id", "category_name");
+  populateSelect("bulkDj", CACHE.djs, "id", "dj_name");
+  populateSelect("bulkPlaylist", CACHE.playlists, "id", "playlist_name");
 }
 document.getElementById("bulkUploadClose").addEventListener("click", () => document.getElementById("bulkUploadBackdrop").classList.remove("show"));
 
