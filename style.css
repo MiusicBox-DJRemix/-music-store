@@ -365,6 +365,7 @@ button:active {
   object-fit: cover;
 }
 
+/* แก้ไขให้ยืดเต็มพื้นที่ว่าง */
 .playlist-folder-info {
   flex: 1;
   min-width: 0;
@@ -386,7 +387,6 @@ button:active {
   font-weight: 600;
 }
 
-/* เอาพื้นหลังและ Padding ของราคาชื่อ Playlist ออก */
 .playlist-folder-price {
   flex-shrink: 0;
   font-size: 12px;
@@ -449,10 +449,6 @@ button:active {
   background: var(--surface-2);
 }
 
-.playlist-song-row:active {
-  background: var(--surface-2);
-}
-
 .playlist-cover {
   width: 50px;
   height: 50px;
@@ -508,9 +504,13 @@ button:active {
   transform: scale(1.15);
 }
 
+/* แก้ไขให้ยืดเต็มพื้นที่ว่างระหว่างรูปกับราคา */
 .playlist-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .playlist-item-name {
@@ -532,7 +532,6 @@ button:active {
   font-weight: 500;
 }
 
-/* ลบพื้นหลังและ Padding ของราคาเพลงในเพลย์ลิสต์ */
 .playlist-item-price {
   font-size: 12px;
   font-weight: 700;
@@ -543,10 +542,9 @@ button:active {
   padding: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: flex-end;
-  margin-left: auto;
-  margin-top: auto;
+  margin-left: 8px;
 }
 
 /* ---------- Song List ---------- */
@@ -586,17 +584,11 @@ button:active {
 
 .song-card:hover {
   background: var(--surface-2);
-  transform: none;
-}
-
-.song-card:active {
-  transform: none;
-  background: var(--surface-hover);
 }
 
 .song-cover {
-  width: 55px!important;
-  height: 55px!important;
+  width: 55px !important;
+  height: 55px !important;
   flex-shrink: 0;
   border-radius: 8px;
   position: relative;
@@ -653,13 +645,14 @@ button:active {
   transform: scale(1.15);
 }
 
+/* แก้ไขจุดสำคัญ: ทำให้กล่องข้อความขยายเต็มพื้นที่ตรงกลางระหว่างรูปกับปุ่มราคา */
 .song-info {
-  padding: 0;
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding: 0;
 }
 
 .song-name {
@@ -671,6 +664,7 @@ button:active {
   text-overflow: ellipsis;
   display: block;
   color: var(--text);
+  width: 100%;
 }
 
 .song-artist {
@@ -715,7 +709,6 @@ button:active {
   padding: 0;
   display: inline-flex;
   align-items: center;
-  margin-top: auto;
 }
 
 .buy-btn {
