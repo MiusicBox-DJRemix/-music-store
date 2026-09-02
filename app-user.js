@@ -1,4 +1,4 @@
-// ===================================================
+
 // app-user.js — หน้า User: ดึงข้อมูลจาก Firestore, เล่นเพลงจาก Cloudinary โดยตรง
 // ===================================================
 import { db } from "./firebase-init.js";
@@ -174,6 +174,9 @@ function renderSongGrid() {
   updatePlayButtonsUI();
 }
 
+// เก็บสถานะว่า playlist ไหนกำลังกางอยู่บ้าง (id -> true) กันไม่ให้ยุบตัวเองตอน re-render (เช่นตอนเล่นเพลง)
+const openPlaylists = new Set();
+
 function renderPlaylists() {
   const container = document.getElementById("playlistsContainer");
   if (!container) return;
@@ -182,29 +185,68 @@ function renderPlaylists() {
   container.innerHTML = STATE.playlists.map(pl => {
     const songs = STATE.songs.filter(s => s.playlist_id === pl.id);
     if (songs.length === 0) return "";
+    const isOpen = openPlaylists.has(pl.id);
+    const cover = pl.cover_url || songs[0].cover_url || "";
     return `
-      <div class="playlist-block">
-        <div class="section-title playlist-heading">${escapeHtml(pl.playlist_name)}</div>
-        <div class="playlist-row">
-          ${songs.map(s => `
-            <div class="playlist-song-row" data-id="${s.id}">
-              <div class="playlist-cover">
-                <img src="${s.cover_url || pl.cover_url || ""}">
-                <button class="playlist-play-btn" data-play="${s.id}">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
-                </button>
+      <div class="playlist-block" data-playlist-id="${pl.id}">
+        <div class="playlist-folder-btn" data-toggle-playlist="${pl.id}">
+          <div class="playlist-folder-cover">
+            <img src="${cover}">
+          </div>
+          <div class="playlist-folder-info">
+            <div class="playlist-folder-name">${escapeHtml(pl.playlist_name)}</div>
+            <div class="playlist-folder-count">${songs.length} เพลง</div>
+          </div>
+          ${pl.price ? `<button type="button" class="playlist-folder-price" data-buy-playlist="${pl.id}">${formatPrice(pl.price)}</button>` : ""}
+          <svg class="playlist-folder-arrow${isOpen ? "" : " is-closed"}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="playlist-row-wrap${isOpen ? "" : " is-closed"}">
+          <div class="playlist-row">
+            ${songs.map(s => `
+              <div class="playlist-song-row" data-id="${s.id}">
+                <div class="playlist-cover">
+                  <img src="${s.cover_url || pl.cover_url || ""}">
+                  <button class="playlist-play-btn" data-play="${s.id}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                </div>
+                <div class="playlist-info">
+                  <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
+                  <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
+                </div>
+                <div class="playlist-item-price">${formatPrice(s.price)}</div>
               </div>
-              <div class="playlist-info">
-                <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
-                <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
-              </div>
-              <div class="playlist-item-price">${formatPrice(s.price)}</div>
-            </div>
-          `).join("")}
+            `).join("")}
+          </div>
         </div>
       </div>
     `;
   }).join("");
+
+  container.querySelectorAll("[data-toggle-playlist]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-toggle-playlist");
+      const block = btn.closest(".playlist-block");
+      const wrap = block.querySelector(".playlist-row-wrap");
+      const arrow = btn.querySelector(".playlist-folder-arrow");
+      const willOpen = wrap.classList.contains("is-closed");
+      wrap.classList.toggle("is-closed");
+      arrow.classList.toggle("is-closed");
+      if (willOpen) openPlaylists.add(id); else openPlaylists.delete(id);
+    });
+  });
+
+  // ปุ่มราคา playlist — กดแล้วส่งข้อความ WhatsApp สั่งซื้อทั้งชุด (ไม่กระตุ้นการกาง/พับ)
+  container.querySelectorAll("[data-buy-playlist]").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const pl = STATE.playlists.find(p => p.id === btn.getAttribute("data-buy-playlist"));
+      if (!pl) return;
+      const songCount = STATE.songs.filter(s => s.playlist_id === pl.id).length;
+      const text = `สวัสดีครับ\nสนใจซื้อเพลย์ลิสต์ทั้งชุด:\nชื่อเพลย์ลิสต์: ${pl.playlist_name}\nจำนวนเพลง: ${songCount} เพลง\nราคา: ${formatPrice(pl.price)}`;
+      window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+    });
+  });
 
   container.querySelectorAll("[data-play]").forEach(el => {
     el.addEventListener("click", (ev) => { ev.stopPropagation(); unlockAudio(); playSong(el.getAttribute("data-play")); });
@@ -473,4 +515,3 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
 });
 
 init().catch(err => showToast("โหลดข้อมูลไม่สำเร็จ: " + err.message, "error"));
-
