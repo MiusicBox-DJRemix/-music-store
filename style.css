@@ -679,7 +679,7 @@ button:active {
   text-overflow: ellipsis;
   display: block;
   color: var(--text);
-  width: 100%;
+  width: 95%;
 }
 
 .song-artist {
