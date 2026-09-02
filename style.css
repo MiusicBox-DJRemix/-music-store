@@ -869,7 +869,6 @@ button:active {
   font-weight: 500;
 }
 
-/* ขยายปุ่มเล่น/หยุดเพลง (Play/Pause) ให้กดง่ายขึ้นพอดีมือ */
 .player-bar .ctrl {
   background: linear-gradient(135deg, var(--accent), #7c3aed);
   width: 36px;
@@ -911,7 +910,6 @@ button:active {
   font-weight: 600;
 }
 
-/* ขยายความสูงแถบเลื่อน (Touch Target) เพื่อให้ใช้นิ้วลากบนมือถือได้ง่าย ไม่พลาด */
 .player-seek-row input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -923,14 +921,12 @@ button:active {
   touch-action: pan-x;
 }
 
-/* ทำให้รางเส้นเวลามีความหนาและชัดเจนขึ้น */
 .player-seek-row input[type="range"]::-webkit-slider-runnable-track {
   height: 6px !important;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* ขยายปุ่มจุดจับ (Thumb) บนแถบเลื่อนให้ใหญ่ขึ้นกำลังดี */
 .player-seek-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -1347,4 +1343,110 @@ button:active {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   ADMIN LOGIN SCREEN
+   ========================================================================== */
+
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  min-height: 100dvh;
+  padding: max(24px, var(--safe-top)) 20px max(24px, var(--safe-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 15% 8%, rgba(139, 92, 246, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 90% 88%, rgba(236, 72, 153, 0.18) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+  background-attachment: fixed;
+}
+
+.login-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(circle at 50% 35%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 35%, #000 0%, transparent 72%);
+}
+
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: linear-gradient(180deg, rgba(28, 34, 52, 0.92), rgba(19, 23, 34, 0.92));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 34px 26px 28px;
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(139, 92, 246, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: loginCardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+}
+
+@keyframes loginCardIn {
+  from { transform: translateY(18px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.login-card::before {
+  content: "🎧";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 18px;
+  font-size: 26px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 10px 26px var(--accent-glow);
+}
+
+.login-card h2 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+.login-card > p {
+  margin: 0 0 26px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.login-card .field {
+  text-align: left;
+}
+
+.login-card .field input {
+  padding: 13px 16px;
+}
+
+.login-card .btn {
+  margin-top: 6px;
+}
+
+#loginError {
+  min-height: 16px;
+  font-weight: 600;
+}
+
+@media (max-width: 380px) {
+  .login-card {
+    padding: 28px 20px 24px;
+  }
 }
