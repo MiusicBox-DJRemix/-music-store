@@ -365,7 +365,6 @@ button:active {
   object-fit: cover;
 }
 
-/* แก้ไขให้ Playlist Folder Info ขยายเต็มพื้นที่ */
 .playlist-folder-info {
   flex: 1;
   min-width: 0;
@@ -439,11 +438,12 @@ button:active {
   gap: 0px !important;
 }
 
+/* ปรับ Playlist Song Row ให้ราคาตกลงมาอยู่มุมขวาล่าง และชื่อเพลงยืดออกไปเต็มที่ */
 .playlist-song-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border-radius: 0px;
   background: transparent;
   border-bottom: 1px solid var(--border);
@@ -513,17 +513,21 @@ button:active {
   transform: scale(1.15);
 }
 
-/* แก้ไขให้ Playlist Info ภายในแถวเพลงยืดเต็มพื้นที่ */
+/* จัดเลย์เอาต์ข้อมูลภายใน Playlist ให้พื้นที่ชื่อยาวเต็ม และราคาอยู่มุมขวาล่าง */
 .playlist-info {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 
+    "name name"
+    "sub price";
+  align-items: center;
+  gap: 2px 8px;
 }
 
 .playlist-item-name {
+  grid-area: name;
   font-size: 13.5px;
   font-weight: 700;
   white-space: nowrap;
@@ -534,29 +538,24 @@ button:active {
 }
 
 .playlist-item-sub {
+  grid-area: sub;
   font-size: 11.5px;
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
   font-weight: 500;
-  width: 100%;
 }
 
 .playlist-item-price {
+  grid-area: price;
   font-size: 12px;
   font-weight: 700;
   color: var(--success);
-  flex-shrink: 0;
   white-space: nowrap;
   background: transparent;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  margin-left: 8px;
+  justify-self: end;
 }
 
 /* ---------- Song List ---------- */
@@ -645,7 +644,7 @@ button:active {
   background: rgba(0, 0, 0, 0.2);
 }
 
-.song-card:hover .play-btn svg {
+.song-cover .play-btn svg {
   width: 22px;
   height: 22px;
   fill: #fff;
@@ -1227,7 +1226,7 @@ button:active {
 }
 
 .row-actions {
-  display: flex;
+  inline-size: flex;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -1311,44 +1310,13 @@ button:active {
 }
 
 .empty-state {
-  text-align: center;
+  text-align: and center;
   color: var(--text-dim);
   padding: 60px 20px;
   font-size: 14.5px;
   font-weight: 500;
 }
 
-.login-screen {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 400px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 32px 26px;
-  box-shadow: var(--shadow-lg);
-}
-
-.login-card h2 {
-  margin: 0 0 6px;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.login-card p {
-  margin: 0 0 24px;
-  color: var(--text-dim);
-  font-size: 13.5px;
-}
-
-/* Spinner Loader */
 .spinner {
   width: 20px;
   height: 20px;
