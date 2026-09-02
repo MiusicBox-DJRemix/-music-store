@@ -6,6 +6,7 @@ import { collection, getDocs, doc, getDoc } from "https://www.gstatic.com/fireba
 const STATE = {
   songs: [], categories: [], djs: [], playlists: [], settings: {},
   currentCategory: "all", currentDj: null, search: "",
+  currentView: "home",
   currentPlayingId: null,   // id ของเพลงที่กำลังเล่น/พักอยู่ในเครื่องเล่น
   currentLoadingId: null    // id ของเพลงที่กำลังโหลดอยู่
 };
@@ -79,6 +80,7 @@ async function init() {
   renderDjRow();
   renderPlaylists();
   renderSongGrid();
+  setView("home");
   togglePlaylistsVisibility();
 }
 
@@ -349,8 +351,28 @@ function renderPlaylists() {
 function togglePlaylistsVisibility() {
   const wrapper = document.querySelector(".playlist-wrapper");
   if (!wrapper) return;
-  // เพลย์ลิสต์จะแสดงเฉพาะหน้า "ทั้งหมด" เท่านั้น
-  wrapper.style.display = STATE.currentCategory === "all" ? "" : "none";
+  // แสดงเพลย์ลิสต์เมื่ออยู่หน้าแรกที่เลือก "ทั้งหมด" หรือเปิดแท็บเพลย์ลิสต์
+  wrapper.style.display = STATE.currentView === "playlist" || STATE.currentCategory === "all" ? "" : "none";
+}
+
+function setView(view) {
+  STATE.currentView = view;
+  const playlistOnly = view === "playlist";
+
+  // ในแท็บเพลย์ลิสต์ให้เหลือเฉพาะส่วนเพลย์ลิสต์ ส่วนอื่นของหน้าแรกจะถูกซ่อนไว้ชั่วคราว
+  [".topbar", "#djSection", "#gridTitle", "#songGrid", "#emptyState"].forEach(selector => {
+    const el = document.querySelector(selector);
+    if (el) el.style.display = playlistOnly ? "none" : "";
+  });
+
+  togglePlaylistsVisibility();
+
+  if (playlistOnly) {
+    const container = document.getElementById("playlistsContainer");
+    const icon = document.getElementById("dropdownIcon");
+    if (container) container.classList.remove("is-closed");
+    if (icon) icon.classList.remove("is-closed");
+  }
 }
 
 function findSong(id) { return STATE.songs.find(s => s.id === id); }
@@ -591,17 +613,24 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
     if (tab === "home") {
       STATE.currentCategory = "all";
       STATE.currentDj = null;
+      setView("home");
       renderCategoryChips();
       renderSongGrid();
       renderPlaylists();
-      togglePlaylistsVisibility();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    else if (tab === "playlist") {
+      setView("playlist");
+      renderPlaylists();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "category") {
+      setView("home");
       const catChips = document.getElementById("categoryChips");
       if (catChips) catChips.scrollIntoView({ behavior: "smooth" });
     }
     else if (tab === "dj") {
+      setView("home");
       const djSection = document.getElementById("djSection");
       if (djSection) djSection.scrollIntoView({ behavior: "smooth" });
     }
