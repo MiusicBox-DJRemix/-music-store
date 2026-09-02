@@ -28,6 +28,12 @@ function escapeHtml(str) {
 function formatPrice(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 
+// ---------------- ดึงชื่อเพลงจากชื่อไฟล์ ----------------
+// ตัดแค่นามสกุลไฟล์ออก (.mp3 / .wav ฯลฯ) ส่วนที่เหลือคงไว้ทุกตัวอักษรเหมือนชื่อไฟล์เดิม
+function nameFromFile(fileName) {
+  return String(fileName || "").replace(/\.[^/.]+$/, "").trim();
+}
+
 // ---------------- Auth ----------------
 onAuthStateChanged(auth, (user) => {
   if (user) showAdmin(); else showLogin();
@@ -159,6 +165,12 @@ document.getElementById("songFileInput").addEventListener("change", (e) => {
   pendingSongFile = f;
   document.getElementById("songFilePicker").textContent = "🎵 " + f.name;
   document.getElementById("songFilePicker").className = "file-picker filled";
+
+  // ดึงชื่อเพลงจากชื่อไฟล์อัตโนมัติ (เฉพาะตอนที่ยังไม่ได้แก้ไขเพลงเดิม และช่องชื่อเพลงยังว่างอยู่)
+  const nameField = document.getElementById("fSongName");
+  if (!editingSongId && !nameField.value.trim()) {
+    nameField.value = nameFromFile(f.name);
+  }
 });
 document.getElementById("coverFileInput").addEventListener("change", (e) => {
   const f = e.target.files[0]; if (!f) return;
@@ -442,8 +454,9 @@ document.getElementById("bulkCoverInput").addEventListener("change", (e) => {
   document.getElementById("bulkCoverPicker").className = "file-picker filled";
 });
 
+// ตัดแค่นามสกุลไฟล์ออก ชื่อเพลงจะเหมือนชื่อไฟล์เดิมทุกตัวอักษร (ไม่ตัด/ไม่แทนที่อักขระใดๆ)
 function cleanFileNameToSongName(fileName) {
-  return fileName.replace(/\.[^/.]+$/, "").replace(/[_]+/g, " ").trim();
+  return nameFromFile(fileName);
 }
 
 document.getElementById("bulkUploadBtn").addEventListener("click", async function () {
