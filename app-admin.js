@@ -75,12 +75,13 @@ document.getElementById("qaBulkUpload").addEventListener("click", () => { openBu
 document.getElementById("qaSettings").addEventListener("click", () => { showView("view-settings"); loadSettings(); });
 
 async function loadDashboard() {
-  const [songsSnap, catSnap, djSnap] = await Promise.all([
-    getDocs(collection(db, "songs")), getDocs(collection(db, "categories")), getDocs(collection(db, "djs"))
+  const [songsSnap, catSnap, djSnap, playlistSnap] = await Promise.all([
+    getDocs(collection(db, "songs")), getDocs(collection(db, "categories")), getDocs(collection(db, "djs")), getDocs(collection(db, "playlists"))
   ]);
   document.getElementById("statSongs").textContent = songsSnap.size;
   document.getElementById("statCats").textContent = catSnap.size;
   document.getElementById("statDjs").textContent = djSnap.size;
+  document.getElementById("statPlaylists").textContent = playlistSnap.size;
 }
 
 // ================= SONGS =================
@@ -223,6 +224,7 @@ document.getElementById("songSaveBtn").addEventListener("click", async function 
     showToast("บันทึกเพลงสำเร็จ", "success");
     document.getElementById("songFormBackdrop").classList.remove("show");
     loadSongs();
+    loadDashboard();
   } catch (err) {
     showToast("บันทึกไม่สำเร็จ: " + err.message, "error");
   }
@@ -234,6 +236,7 @@ function confirmDeleteSong(id) {
     await deleteDoc(doc(db, "songs", id));
     showToast("ลบเพลงแล้ว", "success");
     loadSongs();
+    loadDashboard();
   });
 }
 
@@ -252,7 +255,7 @@ async function loadCategories() {
   wrap.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
     openConfirm("ลบหมวดหมู่นี้หรือไม่?", async () => {
       await deleteDoc(doc(db, "categories", b.getAttribute("data-del")));
-      showToast("ลบแล้ว", "success"); loadCategories();
+      showToast("ลบแล้ว", "success"); loadCategories(); loadDashboard();
     });
   }));
 }
@@ -272,7 +275,7 @@ document.getElementById("catSaveBtn").addEventListener("click", async () => {
   try {
     if (editingCatId) await updateDoc(doc(db, "categories", editingCatId), payload);
     else { payload.created_at = new Date().toISOString(); await addDoc(collection(db, "categories"), payload); }
-    showToast("บันทึกแล้ว", "success"); document.getElementById("catFormBackdrop").classList.remove("show"); loadCategories();
+    showToast("บันทึกแล้ว", "success"); document.getElementById("catFormBackdrop").classList.remove("show"); loadCategories(); loadDashboard();
   } catch (err) { showToast("บันทึกไม่สำเร็จ: " + err.message, "error"); }
 });
 
@@ -291,7 +294,7 @@ async function loadDjs() {
   wrap.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
     openConfirm("ลบ DJ นี้หรือไม่?", async () => {
       await deleteDoc(doc(db, "djs", b.getAttribute("data-del")));
-      showToast("ลบแล้ว", "success"); loadDjs();
+      showToast("ลบแล้ว", "success"); loadDjs(); loadDashboard();
     });
   }));
 }
@@ -333,7 +336,7 @@ document.getElementById("djSaveBtn").addEventListener("click", async function ()
     const payload = { dj_name: name, description: document.getElementById("fDjDesc").value.trim(), image_url: imageUrl };
     if (editingDjId) await updateDoc(doc(db, "djs", editingDjId), payload);
     else { payload.created_at = new Date().toISOString(); await addDoc(collection(db, "djs"), payload); }
-    showToast("บันทึกแล้ว", "success"); document.getElementById("djFormBackdrop").classList.remove("show"); loadDjs();
+    showToast("บันทึกแล้ว", "success"); document.getElementById("djFormBackdrop").classList.remove("show"); loadDjs(); loadDashboard();
   } catch (err) {
     showToast("บันทึกไม่สำเร็จ: " + err.message, "error");
   }
@@ -355,7 +358,7 @@ async function loadPlaylists() {
   wrap.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
     openConfirm("ลบเพลย์ลิสต์นี้หรือไม่? (เพลงในเพลย์ลิสต์จะไม่ถูกลบ แค่ไม่ได้อยู่ในเพลย์ลิสต์นี้อีก)", async () => {
       await deleteDoc(doc(db, "playlists", b.getAttribute("data-del")));
-      showToast("ลบแล้ว", "success"); loadPlaylists();
+      showToast("ลบแล้ว", "success"); loadPlaylists(); loadDashboard();
     });
   }));
 }
@@ -404,7 +407,7 @@ document.getElementById("playlistSaveBtn").addEventListener("click", async funct
     };
     if (editingPlaylistId) await updateDoc(doc(db, "playlists", editingPlaylistId), payload);
     else { payload.created_at = new Date().toISOString(); await addDoc(collection(db, "playlists"), payload); }
-    showToast("บันทึกแล้ว", "success"); document.getElementById("playlistFormBackdrop").classList.remove("show"); loadPlaylists();
+    showToast("บันทึกแล้ว", "success"); document.getElementById("playlistFormBackdrop").classList.remove("show"); loadPlaylists(); loadDashboard();
   } catch (err) {
     showToast("บันทึกไม่สำเร็จ: " + err.message, "error");
   }
@@ -524,6 +527,7 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
     document.getElementById("bulkProgress").style.width = "100%";
     document.getElementById("bulkStatusText").textContent = `เสร็จแล้ว! เพิ่มเพลงสำเร็จ ${bulkFiles.length} เพลง`;
     showToast(`เพิ่มเพลง ${bulkFiles.length} เพลงเข้าเพลย์ลิสต์ "${playlistName}" สำเร็จ`, "success");
+    loadDashboard();
     setTimeout(() => { document.getElementById("bulkUploadBackdrop").classList.remove("show"); }, 1200);
   } catch (err) {
     showToast("อัปโหลดไม่สำเร็จ: " + err.message, "error");
