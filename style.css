@@ -549,6 +549,9 @@ button:active {
   margin-top: 1px;
   font-weight: 500;
   width: 100%;
+  /* กันข้อความ DJ/ศิลปิน (บรรทัดล่าง) ไม่ให้ชนป้ายราคาที่ลอยอยู่มุมขวาล่าง */
+  padding-right: 130px;
+  box-sizing: border-box;
 }
 
 .playlist-item-price {
