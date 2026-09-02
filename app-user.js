@@ -359,8 +359,9 @@ function setView(view) {
   STATE.currentView = view;
   const playlistOnly = view === "playlist";
 
-  // ในแท็บเพลย์ลิสต์ให้เหลือเฉพาะส่วนเพลย์ลิสต์ ส่วนอื่นของหน้าแรกจะถูกซ่อนไว้ชั่วคราว
-  [".topbar", "#djSection", "#gridTitle", "#songGrid", "#emptyState"].forEach(selector => {
+  // หน้าเพลย์ลิสต์ยังคงแสดงโลโก้ ช่องค้นหา และหมวดหมู่ด้านบนไว้
+  // ซ่อนเฉพาะส่วน DJ และรายการ "เพลงทั้งหมด" ด้านล่างตามแบบในภาพ
+  ["#djSection", "#gridTitle", "#songGrid", "#emptyState"].forEach(selector => {
     const el = document.querySelector(selector);
     if (el) el.style.display = playlistOnly ? "none" : "";
   });
