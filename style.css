@@ -538,7 +538,7 @@ button:active {
   font-weight: 500;
 }
 
-/* ลบพื้นหลังและ Padding ของราคาในเพลย์ลิสต์ออก */
+/* ทำให้กล่องราคาจัดเรียงแบบ Column และดันตัวราคาลงมาด้านล่าง (ชิดขวาล่าง) */
 .playlist-item-price {
   font-size: 12px;
   font-weight: 700;
@@ -547,6 +547,12 @@ button:active {
   white-space: nowrap;
   background: transparent;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  margin-left: auto;
+  margin-top: auto; /* ดันลงด้านล่างสุดของแถวเพลง */
 }
 
 /* ---------- Song List ---------- */
@@ -706,7 +712,7 @@ button:active {
   flex-shrink: 0;
 }
 
-/* ลบพื้นหลังและ Padding ของราคาในรายการเพลงหลัก (ถ้ามีคลาสครอบด้วย) */
+/* ทำให้ราคาในรายการเพลงหลักชิดขวาล่างเช่นกัน */
 .song-price {
   font-size: 12px;
   font-weight: 700;
@@ -714,6 +720,9 @@ button:active {
   white-space: nowrap;
   background: transparent;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  margin-top: auto;
 }
 
 .buy-btn {
