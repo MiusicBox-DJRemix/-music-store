@@ -1,4 +1,3 @@
-
 // app-user.js — หน้า User: ดึงข้อมูลจาก Firestore, เล่นเพลงจาก Cloudinary โดยตรง
 // ===================================================
 import { db } from "./firebase-init.js";
@@ -40,6 +39,12 @@ function buildWhatsAppLink(number, text) {
 }
 
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
+
+// ฟังก์ชันสำหรับจัดการคลิกซื้อผ่านตะกร้าสินค้า
+function handleAddToCart(songName, priceText, djName) {
+  const text = `สวัสดีครับ\nสนใจซื้อเพลง:\nชื่อเพลง: ${songName}\nDJ: ${djName || "-"}\nราคา: ${priceText}`;
+  window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+}
 
 async function init() {
   const [songsSnap, catSnap, djSnap, playlistSnap, settingsSnap] = await Promise.all([
@@ -141,7 +146,6 @@ function renderSongGrid() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "block";
-      // ข้อความไม่พบ ต่างกันตามว่ากำลังค้นหาอยู่หรือไม่
       empty.textContent = STATE.search ? `ไม่พบเพลงที่ค้นหา "${STATE.search}"` : "ไม่พบเพลง";
     }
     return;
@@ -158,8 +162,11 @@ function renderSongGrid() {
         <div class="song-artist">${escapeHtml(s.artist || "")}</div>
         ${s.dj_name ? `<div class="song-dj">DJ: ${escapeHtml(s.dj_name)}</div>` : ""}
         <div class="song-footer">
-          <span class="song-price">${formatPrice(s.price)}</span>
-          <span class="buy-btn">ดูเพิ่ม</span>
+          <span class="song-price" style="display:none;"></span>
+          <button type="button" class="buy-cart-btn" data-add-cart="${s.id}" style="background-color: #22c55e; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span>${formatPrice(s.price)}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -168,13 +175,23 @@ function renderSongGrid() {
   grid.querySelectorAll("[data-play]").forEach(el => {
     el.addEventListener("click", (ev) => { ev.stopPropagation(); unlockAudio(); playSong(el.getAttribute("data-play")); });
   });
+
+  grid.querySelectorAll("[data-add-cart]").forEach(el => {
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const song = findSong(el.getAttribute("data-add-cart"));
+      if (song) {
+        handleAddToCart(song.song_name, formatPrice(song.price), song.dj_name);
+      }
+    });
+  });
+
   grid.querySelectorAll(".song-card").forEach(el => {
     el.addEventListener("click", () => openSongModal(el.getAttribute("data-id")));
   });
   updatePlayButtonsUI();
 }
 
-// เก็บสถานะว่า playlist ไหนกำลังกางอยู่บ้าง (id -> true) กันไม่ให้ยุบตัวเองตอน re-render (เช่นตอนเล่นเพลง)
 const openPlaylists = new Set();
 
 function renderPlaylists() {
@@ -197,7 +214,10 @@ function renderPlaylists() {
             <div class="playlist-folder-name">${escapeHtml(pl.playlist_name)}</div>
             <div class="playlist-folder-count">${songs.length} เพลง</div>
           </div>
-          ${pl.price ? `<button type="button" class="playlist-folder-price" data-buy-playlist="${pl.id}">${formatPrice(pl.price)}</button>` : ""}
+          ${pl.price ? `<button type="button" class="playlist-folder-price" data-buy-playlist="${pl.id}" style="background-color: #22c55e; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span>${formatPrice(pl.price)}</span>
+          </button>` : ""}
           <svg class="playlist-folder-arrow${isOpen ? "" : " is-closed"}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </div>
         <div class="playlist-row-wrap${isOpen ? "" : " is-closed"}">
@@ -214,7 +234,12 @@ function renderPlaylists() {
                   <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
                   <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
                 </div>
-                <div class="playlist-item-price">${formatPrice(s.price)}</div>
+                <div class="playlist-item-price">
+                  <button type="button" class="playlist-add-cart" data-add-cart-song="${s.id}" style="background-color: #22c55e; color: #fff; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 12px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    <span>${formatPrice(s.price)}</span>
+                  </button>
+                </div>
               </div>
             `).join("")}
           </div>
@@ -236,7 +261,6 @@ function renderPlaylists() {
     });
   });
 
-  // ปุ่มราคา playlist — กดแล้วส่งข้อความ WhatsApp สั่งซื้อทั้งชุด (ไม่กระตุ้นการกาง/พับ)
   container.querySelectorAll("[data-buy-playlist]").forEach(btn => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -245,6 +269,16 @@ function renderPlaylists() {
       const songCount = STATE.songs.filter(s => s.playlist_id === pl.id).length;
       const text = `สวัสดีครับ\nสนใจซื้อเพลย์ลิสต์ทั้งชุด:\nชื่อเพลย์ลิสต์: ${pl.playlist_name}\nจำนวนเพลง: ${songCount} เพลง\nราคา: ${formatPrice(pl.price)}`;
       window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+    });
+  });
+
+  container.querySelectorAll("[data-add-cart-song]").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const song = findSong(btn.getAttribute("data-add-cart-song"));
+      if (song) {
+        handleAddToCart(song.song_name, formatPrice(song.price), song.dj_name);
+      }
     });
   });
 
@@ -257,7 +291,6 @@ function renderPlaylists() {
   updatePlayButtonsUI();
 }
 
-// ซ่อน playlist ทั้งหมด (รวมหัวข้อ "เพลย์ลิสต์" และปุ่ม dropdown) ตอนกำลังค้นหา, แสดงคืนเมื่อล้างช่องค้นหา
 function togglePlaylistsVisibility() {
   const wrapper = document.querySelector(".playlist-wrapper");
   if (!wrapper) return;
@@ -273,7 +306,6 @@ function unlockAudio() {
   audioUnlocked = true;
 }
 
-// ---- ไอคอน: สามเหลี่ยม (เล่น) / สี่เหลี่ยม (กำลังเล่นอยู่ กดเพื่อหยุด) ----
 function playIconPath() { return '<path d="M8 5v14l11-7z"/>'; }
 function stopIconPath() { return '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'; }
 
@@ -290,7 +322,6 @@ function setPlayerLoading(loading) {
   if (spinnerEl) spinnerEl.style.display = loading ? "block" : "none";
 }
 
-// อัปเดตไอคอนของ "ทุกปุ่มฟังเพลง" ในหน้า
 function updatePlayButtonsUI() {
   const playingId = (!AUDIO.paused && !STATE.currentLoadingId) ? STATE.currentPlayingId : null;
   const loadingId = STATE.currentLoadingId;
