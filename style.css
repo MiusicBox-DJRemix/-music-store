@@ -333,7 +333,6 @@ button:active {
   background: var(--surface);
 }
 
-/* การ์ด "โฟลเดอร์" ของ playlist — ชื่อ + รูปปก, กดเพื่อกาง/พับรายการเพลงข้างใน */
 .playlist-folder-btn {
   width: 100%;
   display: flex;
@@ -416,7 +415,6 @@ button:active {
   transform: rotate(-90deg);
 }
 
-/* กล่องครอบรายการเพลงในแต่ละ playlist — พับ/กางด้วย max-height */
 .playlist-row-wrap {
   max-height: 3000px;
   opacity: 1;
@@ -540,15 +538,15 @@ button:active {
   font-weight: 500;
 }
 
+/* ลบพื้นหลังและ Padding ของราคาในเพลย์ลิสต์ออก */
 .playlist-item-price {
   font-size: 12px;
   font-weight: 700;
   color: var(--success);
   flex-shrink: 0;
   white-space: nowrap;
-  background: rgba(16, 185, 129, 0.1);
-  padding: 3px 8px;
-  border-radius: var(--radius-full);
+  background: transparent;
+  padding: 0;
 }
 
 /* ---------- Song List ---------- */
@@ -708,11 +706,14 @@ button:active {
   flex-shrink: 0;
 }
 
+/* ลบพื้นหลังและ Padding ของราคาในรายการเพลงหลัก (ถ้ามีคลาสครอบด้วย) */
 .song-price {
   font-size: 12px;
   font-weight: 700;
   color: var(--success);
   white-space: nowrap;
+  background: transparent;
+  padding: 0;
 }
 
 .buy-btn {
@@ -773,21 +774,21 @@ button:active {
   color: var(--accent);
 }
 
-/* ---------- Music Player Bar (Mini Floating Popup - Ultra Compact) ---------- */
+/* ---------- Music Player Bar ---------- */
 .player-bar {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 24px);
-  max-width: 440px; /* จำกัดความกว้างไม่ให้ยืดเต็มจอมือถือ */
-  bottom: calc(54px + var(--safe-bottom)); /* วางชิดเหนือ Bottom Nav พอดี */
+  max-width: 440px;
+  bottom: calc(54px + var(--safe-bottom));
   z-index: 60;
   background: rgba(19, 23, 34, 0.92);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  padding: 6px 10px 5px; /* ลด Padding ในมือถือให้กะทัดรัดเป็นพิเศษ */
+  padding: 6px 10px 5px;
   display: none;
   flex-direction: column;
   gap: 2px;
@@ -816,7 +817,6 @@ button:active {
   gap: 8px;
 }
 
-/* ลดขนาดรูปปกให้เล็กลงในมือถือ */
 .player-bar img {
   width: 32px;
   height: 32px;
@@ -852,7 +852,6 @@ button:active {
   font-weight: 500;
 }
 
-/* ลดขนาดปุ่ม Play/Pause */
 .player-bar .ctrl {
   background: linear-gradient(135deg, var(--accent), #7c3aed);
   width: 28px;
