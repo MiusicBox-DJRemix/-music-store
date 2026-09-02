@@ -161,11 +161,12 @@ function renderSongGrid() {
         <div class="song-name">${escapeHtml(s.song_name)}</div>
         <div class="song-artist">${escapeHtml(s.artist || "")}</div>
         ${s.dj_name ? `<div class="song-dj">DJ: ${escapeHtml(s.dj_name)}</div>` : ""}
-        <div class="song-footer">
+        <div class="song-footer" style="display: flex; justify-content: space-between; align-items: center;">
           <span class="song-price" data-add-cart="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             ${formatPrice(s.price)}
           </span>
+          <span style="color: #888; font-size: 16px; font-weight: bold; letter-spacing: 1px; padding: 0 4px; line-height: 1;">⋮</span>
         </div>
       </div>
     </div>
@@ -213,10 +214,13 @@ function renderPlaylists() {
             <div class="playlist-folder-name">${escapeHtml(pl.playlist_name)}</div>
             <div class="playlist-folder-count">${songs.length} เพลง</div>
           </div>
-          ${pl.price ? `<span class="playlist-folder-price" data-buy-playlist="${pl.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 13px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            ${formatPrice(pl.price)}
-          </span>` : ""}
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${pl.price ? `<span class="playlist-folder-price" data-buy-playlist="${pl.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 13px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+              ${formatPrice(pl.price)}
+            </span>` : ""}
+            <span style="color: #888; font-size: 16px; font-weight: bold; line-height: 1;">⋮</span>
+          </div>
           <svg class="playlist-folder-arrow${isOpen ? "" : " is-closed"}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </div>
         <div class="playlist-row-wrap${isOpen ? "" : " is-closed"}">
@@ -233,11 +237,12 @@ function renderPlaylists() {
                   <div class="playlist-item-name">${escapeHtml(s.song_name)}</div>
                   <div class="playlist-item-sub">${escapeHtml(s.dj_name || s.artist || "")}</div>
                 </div>
-                <div class="playlist-item-price">
+                <div class="playlist-item-price" style="display: flex; align-items: center; gap: 6px;">
                   <span class="playlist-add-cart" data-add-cart-song="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                     ${formatPrice(s.price)}
                   </span>
+                  <span style="color: #888; font-size: 14px; font-weight: bold; line-height: 1;">⋮</span>
                 </div>
               </div>
             `).join("")}
