@@ -386,23 +386,17 @@ button:active {
   font-weight: 600;
 }
 
+/* เอาพื้นหลังและ Padding ของราคาชื่อ Playlist ออก */
 .playlist-folder-price {
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 700;
   color: var(--success);
   white-space: nowrap;
-  background: rgba(16, 185, 129, 0.1);
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  border: 1px solid transparent;
+  background: transparent;
+  padding: 0;
+  border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.playlist-folder-price:hover {
-  background: rgba(16, 185, 129, 0.22);
-  border-color: rgba(16, 185, 129, 0.4);
 }
 
 .playlist-folder-arrow {
@@ -538,7 +532,7 @@ button:active {
   font-weight: 500;
 }
 
-/* ทำให้กล่องราคาจัดเรียงแบบ Column และดันตัวราคาลงมาด้านล่าง (ชิดขวาล่าง) */
+/* ลบพื้นหลังและ Padding ของราคาเพลงในเพลย์ลิสต์ */
 .playlist-item-price {
   font-size: 12px;
   font-weight: 700;
@@ -552,7 +546,7 @@ button:active {
   justify-content: flex-end;
   align-items: flex-end;
   margin-left: auto;
-  margin-top: auto; /* ดันลงด้านล่างสุดของแถวเพลง */
+  margin-top: auto;
 }
 
 /* ---------- Song List ---------- */
@@ -712,7 +706,6 @@ button:active {
   flex-shrink: 0;
 }
 
-/* ทำให้ราคาในรายการเพลงหลักชิดขวาล่างเช่นกัน */
 .song-price {
   font-size: 12px;
   font-weight: 700;
@@ -1162,7 +1155,6 @@ button:active {
 }
 
 .quick-actions {
-  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   padding: 0 16px 16px;
