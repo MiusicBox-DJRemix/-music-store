@@ -4,7 +4,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA6wfgjq7OwEIgOb3krxQdg1EFKiVcxX1o",
@@ -19,8 +18,15 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-// เปิดใช้งานเฉพาะตอนอยู่บนเว็บจริง (กัน error ตอนทดสอบในบางสภาพแวดล้อมที่ Analytics โหลดไม่ได้)
-export const analytics = (typeof window !== "undefined") ? getAnalytics(app) : null;
+
+// โหลด Analytics แบบไม่บล็อกการทำงานของเว็บ — ถ้าโดนแอดบล็อกเกอร์หรือเน็ตบล็อก
+// Google Analytics (พบได้บ่อย) เว็บจะยังทำงานต่อได้ปกติ ไม่ค้างที่หน้าโหลด
+export let analytics = null;
+if (typeof window !== "undefined") {
+  import("https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js")
+    .then(({ getAnalytics }) => { analytics = getAnalytics(app); })
+    .catch(() => { /* Analytics โหลดไม่ได้ — ไม่เป็นไร เว็บทำงานต่อได้ปกติ */ });
+}
 
 // ค่า Cloudinary (ใช้เก็บไฟล์เพลง/รูปภาพ แทน Firebase Storage)
 export const CLOUDINARY_CLOUD_NAME = "g4nmb7ho";
