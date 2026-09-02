@@ -96,6 +96,10 @@ function renderCategoryChips() {
       STATE.currentDj = null;
       renderCategoryChips();
       renderSongGrid();
+      // เมื่อเลือกหมวดหมู่ ให้แสดงเฉพาะรายการเพลงของหมวดนั้น
+      // และซ่อนเพลย์ลิสต์ไว้จนกว่าจะกลับไปที่ "ทั้งหมด"
+      renderPlaylists();
+      togglePlaylistsVisibility();
     });
   });
 }
@@ -115,10 +119,39 @@ function renderDjRow() {
       STATE.currentCategory = "all";
       renderCategoryChips();
       renderSongGrid();
+      renderPlaylists();
+      togglePlaylistsVisibility();
       const gridTitle = document.getElementById("gridTitle");
       if (gridTitle) gridTitle.scrollIntoView({ behavior: "smooth" });
     });
   });
+}
+
+function normalizeCategoryValue(value) {
+  return String(value == null ? "" : value).trim().toLowerCase();
+}
+
+function songBelongsToCurrentCategory(song) {
+  if (STATE.currentCategory === "all") return true;
+
+  const category = STATE.categories.find(c => c.id === STATE.currentCategory);
+  const selectedValues = [
+    STATE.currentCategory,
+    category && category.id,
+    category && category.category_name,
+    category && category.name
+  ].map(normalizeCategoryValue).filter(Boolean);
+
+  // รองรับทั้งข้อมูลที่บันทึกเป็น category_id และข้อมูลเก่าที่บันทึกเป็นชื่อหมวดหมู่
+  const songValues = [
+    song.category_id,
+    song.categoryId,
+    song.category,
+    song.category_name,
+    song.categoryName
+  ].map(normalizeCategoryValue).filter(Boolean);
+
+  return songValues.some(value => selectedValues.includes(value));
 }
 
 function getFilteredSongs() {
@@ -127,7 +160,7 @@ function getFilteredSongs() {
       const dj = STATE.djs.find(d => d.id === STATE.currentDj);
       if (!dj || s.dj_name !== dj.dj_name) return false;
     }
-    if (STATE.currentCategory !== "all" && s.category_id !== STATE.currentCategory) return false;
+    if (!songBelongsToCurrentCategory(s)) return false;
     if (STATE.search) {
       const q = STATE.search.toLowerCase();
       // ค้นหาทั้งจากข้อมูลเพลง และค้นหาชื่อเพลย์ลิสต์ที่เพลงนี้สังกัดอยู่ด้วย
@@ -150,7 +183,9 @@ function renderSongGrid() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "block";
-      empty.textContent = STATE.search ? `ไม่พบเพลงที่ค้นหา "${STATE.search}"` : "ไม่พบเพลง";
+      empty.textContent = STATE.currentCategory !== "all"
+        ? "หมวดหมู่นี้ยังไม่มีเพลง"
+        : (STATE.search ? `ไม่พบเพลงที่ค้นหา "${STATE.search}"` : "ไม่พบเพลง");
     }
     return;
   }
@@ -314,8 +349,8 @@ function renderPlaylists() {
 function togglePlaylistsVisibility() {
   const wrapper = document.querySelector(".playlist-wrapper");
   if (!wrapper) return;
-  // ปรับให้สามารถแสดงผลเพลย์ลิสต์ร่วมด้วยเวลาค้นหา (หรือจะคงซ่อนตามเดิมก็ได้ตามต้องการ)
-  wrapper.style.display = ""; 
+  // เพลย์ลิสต์จะแสดงเฉพาะหน้า "ทั้งหมด" เท่านั้น
+  wrapper.style.display = STATE.currentCategory === "all" ? "" : "none";
 }
 
 function findSong(id) { return STATE.songs.find(s => s.id === id); }
@@ -558,6 +593,8 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
       STATE.currentDj = null;
       renderCategoryChips();
       renderSongGrid();
+      renderPlaylists();
+      togglePlaylistsVisibility();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "category") {
