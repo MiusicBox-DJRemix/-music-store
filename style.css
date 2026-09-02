@@ -791,7 +791,7 @@ button:active {
   color: var(--accent);
 }
 
-/* ---------- Music Player Bar (ปรับแก้ให้แถบเลื่อนและปุ่มใช้งานง่ายบนมือถือ) ---------- */
+/* ---------- Music Player Bar ---------- */
 .player-bar {
   position: fixed;
   left: 50%;
@@ -869,7 +869,6 @@ button:active {
   font-weight: 500;
 }
 
-/* ขยายปุ่มเล่น/หยุดเพลง (Play/Pause) ให้กดง่ายขึ้นพอดีมือ */
 .player-bar .ctrl {
   background: linear-gradient(135deg, var(--accent), #7c3aed);
   width: 36px;
@@ -911,7 +910,6 @@ button:active {
   font-weight: 600;
 }
 
-/* ขยายความสูงแถบเลื่อน (Touch Target) เพื่อให้ใช้นิ้วลากบนมือถือได้ง่าย ไม่พลาด */
 .player-seek-row input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -923,14 +921,12 @@ button:active {
   touch-action: pan-x;
 }
 
-/* ทำให้รางเส้นเวลามีความหนาและชัดเจนขึ้น */
 .player-seek-row input[type="range"]::-webkit-slider-runnable-track {
   height: 6px !important;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* ขยายปุ่มจุดจับ (Thumb) บนแถบเลื่อนให้ใหญ่ขึ้นกำลังดี */
 .player-seek-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -1176,6 +1172,7 @@ button:active {
 }
 
 .quick-actions {
+  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   padding: 0 16px 16px;
