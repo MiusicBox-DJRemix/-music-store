@@ -1,1 +1,1 @@
-# music-store
+# Miusic-store
