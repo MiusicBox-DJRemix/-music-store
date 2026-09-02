@@ -130,7 +130,11 @@ function getFilteredSongs() {
     if (STATE.currentCategory !== "all" && s.category_id !== STATE.currentCategory) return false;
     if (STATE.search) {
       const q = STATE.search.toLowerCase();
-      const hay = [s.song_name, s.artist, s.dj_name, s.category_name].join(" ").toLowerCase();
+      // ค้นหาทั้งจากข้อมูลเพลง และค้นหาชื่อเพลย์ลิสต์ที่เพลงนี้สังกัดอยู่ด้วย
+      const pl = STATE.playlists.find(p => p.id === s.playlist_id);
+      const playlistName = pl ? pl.playlist_name : "";
+      
+      const hay = [s.song_name, s.artist, s.dj_name, s.category_name, playlistName].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -201,10 +205,19 @@ function renderPlaylists() {
   if (!container) return;
   if (STATE.playlists.length === 0) { container.innerHTML = ""; return; }
 
-  container.innerHTML = STATE.playlists.map(pl => {
+  // กรองเพลย์ลิสต์ตามคำค้นหาด้วย (ถ้าช่องค้นหาตรงกับชื่อเพลย์ลิสต์ จะแสดงเพลย์ลิสต์นั้น)
+  const filteredPlaylists = STATE.playlists.filter(pl => {
+    if (!STATE.search) return true;
+    const q = STATE.search.toLowerCase();
+    const matchPlName = pl.playlist_name.toLowerCase().includes(q);
+    const hasMatchingSongs = STATE.songs.some(s => s.playlist_id === pl.id && [s.song_name, s.artist, s.dj_name].join(" ").toLowerCase().includes(q));
+    return matchPlName || hasMatchingSongs;
+  });
+
+  container.innerHTML = filteredPlaylists.map(pl => {
     const songs = STATE.songs.filter(s => s.playlist_id === pl.id);
     if (songs.length === 0) return "";
-    const isOpen = openPlaylists.has(pl.id);
+    const isOpen = openPlaylists.has(pl.id) || (STATE.search && STATE.search.length > 0); // เปิดอัตโนมัติเมื่อกำลังค้นหา
     const cover = pl.cover_url || songs[0].cover_url || "";
     return `
       <div class="playlist-block" data-playlist-id="${pl.id}">
@@ -301,7 +314,8 @@ function renderPlaylists() {
 function togglePlaylistsVisibility() {
   const wrapper = document.querySelector(".playlist-wrapper");
   if (!wrapper) return;
-  wrapper.style.display = STATE.search ? "none" : "";
+  // ปรับให้สามารถแสดงผลเพลย์ลิสต์ร่วมด้วยเวลาค้นหา (หรือจะคงซ่อนตามเดิมก็ได้ตามต้องการ)
+  wrapper.style.display = ""; 
 }
 
 function findSong(id) { return STATE.songs.find(s => s.id === id); }
@@ -522,10 +536,11 @@ if (searchInputEl) {
   searchInputEl.addEventListener("input", debounce((e) => {
     STATE.search = e.target.value.trim();
     renderSongGrid();
+    renderPlaylists(); // อัปเดตการแสดงผลเพลย์ลิสต์ตามคำค้นหาด้วย
     togglePlaylistsVisibility();
   }, 250));
 
-  // เพิ่มโค้ดส่วนนี้เพื่อดักจับการกดปุ่ม Enter / ปุ่ม Go บนมือถือเพื่อซ่อนแป้นพิมพ์โดยไม่กระทบส่วนอื่น
+  // ดักจับการกดปุ่ม Enter หรือกดปุ่ม Go บนมือถือเพื่อซ่อนแป้นพิมพ์
   searchInputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       searchInputEl.blur();
