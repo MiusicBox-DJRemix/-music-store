@@ -452,6 +452,7 @@ button:active {
   gap: 10px;
   box-shadow: none;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .playlist-song-row:last-child {
@@ -551,16 +552,21 @@ button:active {
 }
 
 .playlist-item-price {
-  font-size: 12px;
+  position: absolute;
+  right: 0px;
+  bottom: 0px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--success);
   white-space: nowrap;
-  background: transparent;
-  padding: 0;
+  background: var(--surface-2);
+  padding: 3px 8px;
+  border-radius: 8px 0 0 0;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-left: 0;
+  z-index: 1;
 }
 
 /* ---------- Song List ---------- */
