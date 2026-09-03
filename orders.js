@@ -117,6 +117,26 @@ function calculateOrderTotal(orderType, items, playlist) {
     ? Number(playlist.price || 0)
     : calculateCartTotal(items);
 }
+
+// รองรับหน้า admin.html รุ่นเก่าที่ยังไม่มี modal ใบเสร็จ
+function ensureReceiptElements() {
+  if (document.getElementById("receiptBackdrop")) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.id = "receiptBackdrop";
+  backdrop.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h3>ใบเสร็จดิจิทัล</h3>
+        <button class="modal-close" id="receiptClose">✕</button>
+      </div>
+      <div id="receiptContent"></div>
+      <button class="btn" id="receiptPrintBtn" style="margin-top:14px;">พิมพ์ / บันทึกเป็น PDF</button>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+}
 function calculateStats(orders) {
   // totalOrders = ออเดอร์ทั้งหมดทุกสถานะ (ปริมาณงานรวม)
   // totalSongsSold / totalRevenue = นับเฉพาะออเดอร์ที่ "สำเร็จ" แล้วเท่านั้น
@@ -411,6 +431,7 @@ function renderHistory() {
 function openReceipt(orderId) {
   const order = state.allOrders.find((o) => o.id === orderId);
   if (!order) return;
+  ensureReceiptElements();
 
   const playlist = order.playlist_id
     ? state.playlists.find((p) => p.id === order.playlist_id)
@@ -440,6 +461,7 @@ function openReceipt(orderId) {
     `).join("");
 
   const content = document.getElementById("receiptContent");
+  if (!content) return;
   content.innerHTML = `
     <div class="receipt-paper">
       <div class="receipt-head">
@@ -989,6 +1011,7 @@ async function handleSubmitOrder() {
 /* ---------------- Init (เรียกทุกครั้งที่เปิดหน้า "จัดการออเดอร์") ---------------- */
 export async function initOrdersView() {
   const loadingEl = document.getElementById("ordSongsLoading");
+  ensureReceiptElements();
   loadingEl.style.display = "block";
   loadingEl.textContent = "กำลังโหลดรายชื่อเพลง...";
 
