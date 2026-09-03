@@ -117,7 +117,9 @@ function renderDjRow() {
   ).join("");
   wrap.querySelectorAll(".dj-item").forEach(el => {
     el.addEventListener("click", () => {
-      STATE.currentDj = el.getAttribute("data-dj");
+      const selectedDjId = el.getAttribute("data-dj");
+      // กด DJ คนเดิมซ้ำอีกครั้งเพื่อยกเลิกตัวกรองและแสดงเพลงของ DJ ทุกคน
+      STATE.currentDj = STATE.currentDj === selectedDjId ? null : selectedDjId;
       STATE.currentCategory = "all";
       renderCategoryChips();
       renderSongGrid();
@@ -363,7 +365,8 @@ function setView(view) {
   STATE.currentView = view;
   const showCategory = view === "home" || view === "category";
   const showDj = view === "home" || view === "dj";
-  const showSongs = view === "home" || view === "category";
+  // แท็บ DJ ต้องแสดงเพลงของ DJ ทุกคน หรือเพลงของ DJ ที่เลือก
+  const showSongs = view === "home" || view === "category" || view === "dj";
 
   // ช่องค้นหาอยู่ใน topbar จึงยังแสดงทุกแท็บ
   const categoryChips = document.getElementById("categoryChips");
@@ -650,6 +653,7 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
       STATE.currentDj = null;
       setView("dj");
       renderDjRow();
+      renderSongGrid();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "contact") {
