@@ -7,7 +7,7 @@ import {
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initOrdersView } from "./orders.js";
+import { initOrdersView } from "./orders.js?v=20260903-receipt";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
 let editingSongId = null, editingCatId = null, editingDjId = null, editingPlaylistId = null;
@@ -585,4 +585,3 @@ document.getElementById("confirmOk").addEventListener("click", async () => {
   document.getElementById("confirmBackdrop").classList.remove("show");
   if (confirmAction) await confirmAction();
 });
-
