@@ -98,6 +98,27 @@
         width:100%; background:var(--surface-2, rgba(255,255,255,.06)); color:var(--text);
         border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:8px 10px; font-size:13px;
       }
+      /* ---- เพิ่มใหม่: สลับประเภทออเดอร์ เพลงเดี่ยว / ยกเพลย์ลิสต์ ---- */
+      #view-orders .type-toggle { display:flex; gap:8px; margin-bottom:14px; }
+      #view-orders .type-toggle button {
+        flex:1; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.04); color:var(--text-dim);
+        border-radius:10px; padding:10px 8px; font-size:13px; font-weight:700; cursor:pointer;
+      }
+      #view-orders .type-toggle button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+      #view-orders .playlist-result-card {
+        border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:10px; margin-bottom:8px;
+        display:flex; gap:10px; align-items:center; cursor:pointer;
+      }
+      #view-orders .playlist-result-card:hover { background:rgba(255,255,255,.04); }
+      #view-orders .playlist-result-card img { width:44px; height:44px; border-radius:8px; object-fit:cover; background:rgba(255,255,255,.06); }
+      #view-orders .playlist-selected-card {
+        border:1px solid var(--accent); background:rgba(122,92,255,.08); border-radius:10px; padding:12px;
+        display:flex; flex-direction:column; gap:4px; margin-bottom:10px;
+      }
+      #view-orders .order-type-badge {
+        display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 9px;
+        font-size:11px; font-weight:700; width:fit-content; margin-bottom:4px;
+      }
     </style>
     <div id="view-orders" class="view" style="display:none;">
       <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
@@ -107,10 +128,14 @@
 
       <div class="container" style="padding:0 16px;">
 
-        <div class="stat-grid" style="margin-bottom:16px;">
+        <div class="stat-grid" style="margin-bottom:10px;">
           <div class="stat-card"><div class="num" id="ordStatCount">0</div><div class="label">ออเดอร์ทั้งหมด</div></div>
           <div class="stat-card"><div class="num" id="ordStatSongs">0</div><div class="label">เพลงที่ขายได้ (สำเร็จ)</div></div>
           <div class="stat-card" style="grid-column:span 2;"><div class="num" id="ordStatRevenue">0</div><div class="label">ยอดขายรวม (LAK) — เฉพาะสำเร็จ</div></div>
+        </div>
+        <div class="stat-grid" style="margin-bottom:16px;">
+          <div class="stat-card"><div class="num" id="ordStatSingleCount">0</div><div class="label">ออเดอร์เพลงเดี่ยว (สำเร็จ)</div></div>
+          <div class="stat-card"><div class="num" id="ordStatPlaylistCount">0</div><div class="label">ออเดอร์ยกเพลย์ลิสต์ (สำเร็จ)</div></div>
         </div>
 
         <div style="font-weight:800;margin-bottom:10px;">สร้างออเดอร์ใหม่</div>
@@ -118,12 +143,28 @@
         <div class="field"><label>ชื่อลูกค้า *</label><input id="ordCustomerName" placeholder="เช่น ທ້າວ ບຸນມີ"></div>
         <div class="field"><label>เบอร์ WhatsApp *</label><input id="ordCustomerWhatsapp" placeholder="เช่น +856 20 5xxx xxxx"></div>
 
-        <div class="field">
-          <label>ค้นหาและเลือกเพลง</label>
-          <div class="search-box"><input id="ordSongSearch" placeholder="ค้นหาเพลง ศิลปิน หรือ DJ..."></div>
+        <div class="type-toggle" id="ordTypeToggle">
+          <button type="button" data-order-type="single" class="active">🎵 เพลงเดี่ยว</button>
+          <button type="button" data-order-type="playlist">🎶 ยกเพลย์ลิสต์</button>
         </div>
-        <p id="ordSongsLoading" class="empty-state" style="padding:10px 0;">กำลังโหลดรายชื่อเพลง...</p>
-        <div id="ordSearchResults"></div>
+
+        <div id="ordSingleSection">
+          <div class="field">
+            <label>ค้นหาและเลือกเพลง</label>
+            <div class="search-box"><input id="ordSongSearch" placeholder="ค้นหาเพลง ศิลปิน หรือ DJ..."></div>
+          </div>
+          <p id="ordSongsLoading" class="empty-state" style="padding:10px 0;">กำลังโหลดรายชื่อเพลง...</p>
+          <div id="ordSearchResults"></div>
+        </div>
+
+        <div id="ordPlaylistSection" style="display:none;">
+          <div class="field">
+            <label>ค้นหาและเลือกเพลย์ลิสต์</label>
+            <div class="search-box"><input id="ordPlaylistSearch" placeholder="ค้นหาชื่อเพลย์ลิสต์ เช่น Sdk zzbee..."></div>
+          </div>
+          <div id="ordPlaylistSelected"></div>
+          <div id="ordPlaylistResults"></div>
+        </div>
 
         <div style="margin:16px 0;">
           <div style="font-weight:700;font-size:13px;color:var(--text-dim);margin-bottom:6px;">ออเดอร์ปัจจุบัน</div>
@@ -266,11 +307,27 @@
       <div class="field"><label>ชื่อลูกค้า *</label><input id="eOrderCustomerName" placeholder="เช่น ທ້າວ ບຸນມີ"></div>
       <div class="field"><label>เบอร์ WhatsApp *</label><input id="eOrderCustomerWhatsapp" placeholder="เช่น +856 20 5xxx xxxx"></div>
 
-      <div class="field">
-        <label>ค้นหาและเลือกเพลง</label>
-        <div class="search-box"><input id="eOrderSongSearch" placeholder="ค้นหาเพลง ศิลปิน หรือ DJ..."></div>
+      <div class="type-toggle" id="eOrdTypeToggle">
+        <button type="button" data-edit-order-type="single" class="active">🎵 เพลงเดี่ยว</button>
+        <button type="button" data-edit-order-type="playlist">🎶 ยกเพลย์ลิสต์</button>
       </div>
-      <div id="eOrderSearchResults"></div>
+
+      <div id="eOrdSingleSection">
+        <div class="field">
+          <label>ค้นหาและเลือกเพลง</label>
+          <div class="search-box"><input id="eOrderSongSearch" placeholder="ค้นหาเพลง ศิลปิน หรือ DJ..."></div>
+        </div>
+        <div id="eOrderSearchResults"></div>
+      </div>
+
+      <div id="eOrdPlaylistSection" style="display:none;">
+        <div class="field">
+          <label>ค้นหาและเลือกเพลย์ลิสต์</label>
+          <div class="search-box"><input id="eOrdPlaylistSearch" placeholder="ค้นหาชื่อเพลย์ลิสต์..."></div>
+        </div>
+        <div id="eOrdPlaylistSelected"></div>
+        <div id="eOrdPlaylistResults"></div>
+      </div>
 
       <div style="margin:16px 0;">
         <div style="font-weight:700;font-size:13px;color:var(--text-dim);margin-bottom:6px;">เพลงในออเดอร์นี้</div>
