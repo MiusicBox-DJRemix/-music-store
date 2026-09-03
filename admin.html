@@ -128,10 +128,12 @@
         <div style="margin:16px 0;">
           <div style="font-weight:700;font-size:13px;color:var(--text-dim);margin-bottom:6px;">ออเดอร์ปัจจุบัน</div>
           <div id="ordCartItems"></div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:6px;">
-            <span style="color:var(--text-dim);font-size:13px;">ยอดรวม</span>
-            <span id="ordCartTotal" style="font-size:20px;font-weight:800;color:var(--success);">0 LAK</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:6px;">
+            <span style="color:var(--text-dim);font-size:13px;">ยอดรวม (LAK) — แก้ไขได้</span>
+            <input id="ordCartTotal" type="number" min="0" inputmode="numeric"
+              style="width:140px;text-align:right;font-size:18px;font-weight:800;color:var(--success);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:6px 10px;">
           </div>
+          <div id="ordTotalHint" style="font-size:11px;color:var(--text-dim);text-align:right;margin-top:4px;"></div>
         </div>
 
         <button class="btn" id="ordSubmitBtn">บันทึกออเดอร์</button>
@@ -254,6 +256,35 @@
       <div id="bulkStatusText" style="font-size:12px;color:var(--text-dim);margin-top:6px;"></div>
 
       <button class="btn" id="bulkUploadBtn" style="margin-top:14px;">เริ่มอัปโหลดทั้งหมด</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="orderFormBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3 id="orderFormTitle">แก้ไขออเดอร์</h3><button class="modal-close" id="orderFormClose">✕</button></div>
+
+      <div class="field"><label>ชื่อลูกค้า *</label><input id="eOrderCustomerName" placeholder="เช่น ທ້າວ ບຸນມີ"></div>
+      <div class="field"><label>เบอร์ WhatsApp *</label><input id="eOrderCustomerWhatsapp" placeholder="เช่น +856 20 5xxx xxxx"></div>
+
+      <div class="field">
+        <label>ค้นหาและเลือกเพลง</label>
+        <div class="search-box"><input id="eOrderSongSearch" placeholder="ค้นหาเพลง ศิลปิน หรือ DJ..."></div>
+      </div>
+      <div id="eOrderSearchResults"></div>
+
+      <div style="margin:16px 0;">
+        <div style="font-weight:700;font-size:13px;color:var(--text-dim);margin-bottom:6px;">เพลงในออเดอร์นี้</div>
+        <div id="eOrderCartItems"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:6px;">
+          <span style="color:var(--text-dim);font-size:13px;">ยอดรวม (LAK) — แก้ไขได้</span>
+          <input id="eOrderCartTotal" type="number" min="0" inputmode="numeric"
+            style="width:140px;text-align:right;font-size:18px;font-weight:800;color:var(--success);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:6px 10px;">
+        </div>
+        <div id="eOrderTotalHint" style="font-size:11px;color:var(--text-dim);text-align:right;margin-top:4px;"></div>
+      </div>
+
+      <button class="btn" id="eOrderSaveBtn">บันทึกการแก้ไข</button>
+      <div id="eOrderFeedback" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
     </div>
   </div>
 
