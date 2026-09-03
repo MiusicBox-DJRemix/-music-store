@@ -20,7 +20,16 @@ export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 // เปิดใช้งานเฉพาะตอนอยู่บนเว็บจริง (กัน error ตอนทดสอบในบางสภาพแวดล้อมที่ Analytics โหลดไม่ได้)
-export const analytics = (typeof window !== "undefined") ? getAnalytics(app) : null;
+export const analytics = (() => {
+  if (typeof window === "undefined") return null;
+  try {
+    return getAnalytics(app);
+  } catch (err) {
+    // Analytics ไม่ควรทำให้ Auth/Firestore ของหน้าเว็บหยุดทำงาน
+    console.warn("Firebase Analytics ไม่พร้อมใช้งาน:", err);
+    return null;
+  }
+})();
 
 // ค่า Cloudinary (ใช้เก็บไฟล์เพลง/รูปภาพ แทน Firebase Storage)
 export const CLOUDINARY_CLOUD_NAME = "g4nmb7ho";
