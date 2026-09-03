@@ -4,7 +4,7 @@
 // ===================================================
 import { db } from "./firebase-init.js";
 import {
-  collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc, deleteDoc
+  collection, getDocs, getDoc, setDoc, query, orderBy, where, doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ---------------- สถานะออเดอร์ (4 สถานะ) ---------------- */
@@ -24,6 +24,18 @@ function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = set
 // ชื่อฟิลด์จริงใน Firestore คือ playlist_name แต่รองรับข้อมูลเก่าที่อาจใช้ name ด้วย
 function getPlaylistName(playlist) {
   return String(playlist?.playlist_name ?? playlist?.name ?? "");
+}
+
+function getReceiptNumber(orderId, createdAt) {
+  const date = new Date(createdAt || Date.now());
+  const ymd = Number.isNaN(date.getTime())
+    ? "00000000"
+    : [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("");
+  return `RCPT-${ymd}-${String(orderId || "000000").slice(-6).toUpperCase()}`;
 }
 
 const state = {
@@ -52,6 +64,7 @@ const state = {
   // true = ใช้ค่าที่ผู้ใช้พิมพ์เอง, false = คำนวณอัตโนมัติจากราคาเพลงในตะกร้า (หรือราคาเหมาเพลย์ลิสต์)
   cartTotalEdited: false,     // สำหรับฟอร์มสร้างออเดอร์ใหม่
   editCartTotalEdited: false, // สำหรับ modal แก้ไขออเดอร์
+  storeName: "Music Store",
 };
 
 /* ---------------- โหลดเพลงจริงจาก Firestore ---------------- */
@@ -78,6 +91,16 @@ async function loadPlaylistsFromDatabase() {
     .filter(p => Number(p.price || 0) > 0);
 }
 
+async function loadStoreName() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "main"));
+    return snap.exists() ? String(snap.data().website_name || "Music Store") : "Music Store";
+  } catch (err) {
+    console.warn("โหลดชื่อร้านไม่สำเร็จ ใช้ชื่อเริ่มต้นแทน:", err);
+    return "Music Store";
+  }
+}
+
 /* ---------------- หาเพลงทั้งหมดที่อยู่ในเพลย์ลิสต์ที่เลือก ----------------
    อ้างอิงจากฟิลด์ playlist_id บนเอกสารเพลงแต่ละเพลง (บันทึกไว้ตอนเพิ่ม/แก้ไขเพลงในหน้า "จัดการเพลง")
    ถ้าฐานข้อมูลจริงเก็บฟิลด์นี้ชื่ออื่น ให้แก้ตรง s.playlist_id ด้านล่างนี้จุดเดียว */
@@ -88,6 +111,11 @@ function getSongsInPlaylist(playlistId) {
 /* ---------------- คำนวณ ---------------- */
 function calculateCartTotal(items) {
   return items.reduce((sum, item) => sum + Number(item.price || 0), 0);
+}
+function calculateOrderTotal(orderType, items, playlist) {
+  return orderType === "playlist" && playlist
+    ? Number(playlist.price || 0)
+    : calculateCartTotal(items);
 }
 function calculateStats(orders) {
   // totalOrders = ออเดอร์ทั้งหมดทุกสถานะ (ปริมาณงานรวม)
@@ -177,18 +205,17 @@ function renderCart() {
     });
   }
 
-  // โหมดยกเพลย์ลิสต์: ใช้ "ราคาเหมา" ของเพลย์ลิสต์ ไม่ใช่ผลรวมราคาเพลงแต่ละเพลง
-  const computedTotal = state.orderType === "playlist" && state.selectedPlaylist
-    ? Number(state.selectedPlaylist.price || 0)
-    : calculateCartTotal(state.cartItems);
-  // ถ้าผู้ใช้ยังไม่ได้แก้ยอดรวมเอง ให้ค่าตามผลรวม/ราคาเหมาเสมอ
-  if (!state.cartTotalEdited) {
-    totalEl.value = computedTotal;
-  }
+  // ยอดเพลงเดี่ยว = ผลรวมราคาเพลง / ยกเพลย์ลิสต์ = ราคาเหมาของเพลย์ลิสต์
+  const computedTotal = calculateOrderTotal(
+    state.orderType,
+    state.cartItems,
+    state.selectedPlaylist
+  );
+  totalEl.value = computedTotal;
   if (hintEl) {
-    hintEl.textContent = state.cartTotalEdited
-      ? `ยอดรวม${state.orderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computedTotal)}`
-      : "";
+    hintEl.textContent = `คำนวณอัตโนมัติ: ${
+      state.orderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "รวมราคาเพลงที่เลือก"
+    }`;
   }
 }
 
@@ -358,6 +385,7 @@ function renderHistory() {
         <span class="status-badge" style="background:${cfg.bg};color:${cfg.color};">${cfg.emoji} ${cfg.label}</span>
         <select class="status-select" data-order-id="${o.id}">${options}</select>
         <div class="row-actions" style="justify-content:flex-end;">
+          <button class="icon-btn" data-receipt-order="${o.id}" title="ดูใบเสร็จ">🧾</button>
           <button class="icon-btn" data-edit-order="${o.id}" title="แก้ไขออเดอร์">✏️</button>
           <button class="icon-btn danger" data-delete-order="${o.id}" title="ลบออเดอร์">🗑</button>
         </div>
@@ -368,12 +396,79 @@ function renderHistory() {
   wrap.querySelectorAll("[data-order-id]").forEach((sel) => {
     sel.addEventListener("change", () => handleStatusChange(sel.getAttribute("data-order-id"), sel.value));
   });
+  wrap.querySelectorAll("[data-receipt-order]").forEach((btn) => {
+    btn.addEventListener("click", () => openReceipt(btn.getAttribute("data-receipt-order")));
+  });
   wrap.querySelectorAll("[data-edit-order]").forEach((btn) => {
     btn.addEventListener("click", () => openEditOrderModal(btn.getAttribute("data-edit-order")));
   });
   wrap.querySelectorAll("[data-delete-order]").forEach((btn) => {
     btn.addEventListener("click", () => handleDeleteOrder(btn.getAttribute("data-delete-order")));
   });
+}
+
+/* ---------------- ใบเสร็จดิจิทัล ---------------- */
+function openReceipt(orderId) {
+  const order = state.allOrders.find((o) => o.id === orderId);
+  if (!order) return;
+
+  const playlist = order.playlist_id
+    ? state.playlists.find((p) => p.id === order.playlist_id)
+    : null;
+  const playlistName = order.playlist_name || getPlaylistName(playlist) || "เพลย์ลิสต์";
+  const total = Number.isFinite(Number(order.total))
+    ? Number(order.total)
+    : calculateOrderTotal(order.order_type, order.items || [], playlist);
+  const date = order.created_at ? new Date(order.created_at) : new Date();
+  const dateText = Number.isNaN(date.getTime())
+    ? "-"
+    : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  const receiptNumber = order.receipt_number || getReceiptNumber(order.id, order.created_at);
+
+  const itemRows = order.order_type === "playlist"
+    ? `
+      <div class="receipt-line">
+        <div><strong>🎶 ${escapeHtml(playlistName)}</strong><small>ยกเพลย์ลิสต์ · ${(order.items || []).length} เพลง</small></div>
+        <strong>${formatLAK(total)}</strong>
+      </div>
+    `
+    : (order.items || []).map((item) => `
+      <div class="receipt-line">
+        <div><strong>${escapeHtml(item.title || "เพลง")}</strong></div>
+        <strong>${formatLAK(item.price)}</strong>
+      </div>
+    `).join("");
+
+  const content = document.getElementById("receiptContent");
+  content.innerHTML = `
+    <div class="receipt-paper">
+      <div class="receipt-head">
+        <h2>${escapeHtml(order.store_name || state.storeName)}</h2>
+        <div>ใบเสร็จรับเงิน</div>
+        <small>เลขที่ ${escapeHtml(receiptNumber)}</small>
+        <small>${escapeHtml(dateText)}</small>
+      </div>
+      <div class="receipt-customer">
+        <div><span>ลูกค้า</span><strong>${escapeHtml(order.customer_name)}</strong></div>
+        <div><span>WhatsApp</span><strong>${escapeHtml(order.whatsapp)}</strong></div>
+      </div>
+      <div class="receipt-items">
+        ${itemRows || '<div class="receipt-empty">ไม่มีรายการสินค้า</div>'}
+      </div>
+      <div class="receipt-total"><span>รวมทั้งสิ้น</span><strong>${formatLAK(total)}</strong></div>
+      <div class="receipt-thanks">ขอบคุณที่ใช้บริการ</div>
+    </div>
+  `;
+
+  const backdrop = document.getElementById("receiptBackdrop");
+  backdrop.classList.add("open");
+  backdrop.style.display = "flex";
+}
+
+function closeReceipt() {
+  const backdrop = document.getElementById("receiptBackdrop");
+  backdrop.classList.remove("open");
+  backdrop.style.display = "none";
 }
 
 /* ---------------- เปลี่ยนสถานะออเดอร์ ---------------- */
@@ -505,16 +600,16 @@ function renderEditCart() {
     });
   }
 
-  const computedTotal = state.editOrderType === "playlist" && state.editSelectedPlaylist
-    ? Number(state.editSelectedPlaylist.price || 0)
-    : calculateCartTotal(state.editCartItems);
-  if (!state.editCartTotalEdited) {
-    totalEl.value = computedTotal;
-  }
+  const computedTotal = calculateOrderTotal(
+    state.editOrderType,
+    state.editCartItems,
+    state.editSelectedPlaylist
+  );
+  totalEl.value = computedTotal;
   if (hintEl) {
-    hintEl.textContent = state.editCartTotalEdited
-      ? `ยอดรวม${state.editOrderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computedTotal)}`
-      : "";
+    hintEl.textContent = `คำนวณอัตโนมัติ: ${
+      state.editOrderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "รวมราคาเพลงที่เลือก"
+    }`;
   }
 }
 
@@ -678,20 +773,13 @@ function openEditOrderModal(orderId) {
   document.getElementById("eOrdPlaylistSearch").value = "";
   document.getElementById("eOrderFeedback").textContent = "";
 
-  // ถ้ายอดรวมที่บันทึกไว้เดิมไม่ตรงกับผลรวมราคาเพลง/ราคาเหมา (เคยถูกแก้ไขเองมาก่อน)
-  // ให้ถือว่าเป็นค่าที่แก้ไขเองและแสดงยอดเดิมนั้นไว้ก่อน แทนที่จะคำนวณทับ
-  const computedTotal = orderType === "playlist" && state.editSelectedPlaylist
-    ? Number(state.editSelectedPlaylist.price || 0)
-    : calculateCartTotal(state.editCartItems);
-  const savedTotal = Number(order.total || 0);
-  state.editCartTotalEdited = savedTotal !== computedTotal;
+  // ทุกครั้งที่แก้ไข ให้ยอดรวมกลับมาคำนวณจากข้อมูลสินค้าจริง
+  state.editCartTotalEdited = false;
 
   renderEditCart();
   renderEditSearchResults();
   renderEditPlaylistSelected();
   renderEditPlaylistSearchResults();
-  document.getElementById("eOrderCartTotal").value = savedTotal;
-
   const backdrop = document.getElementById("orderFormBackdrop");
   backdrop.classList.add("open");
   backdrop.style.display = "flex";
@@ -717,13 +805,17 @@ async function handleUpdateOrder() {
 
   const nameInput = document.getElementById("eOrderCustomerName");
   const whatsappInput = document.getElementById("eOrderCustomerWhatsapp");
-  const totalInput = document.getElementById("eOrderCartTotal");
   const feedback = document.getElementById("eOrderFeedback");
   const btn = document.getElementById("eOrderSaveBtn");
 
   const customerName = nameInput.value.trim();
   const whatsapp = whatsappInput.value.trim();
-  const total = Number(totalInput.value);
+  const total = calculateOrderTotal(
+    state.editOrderType,
+    state.editCartItems,
+    state.editSelectedPlaylist
+  );
+  const existingOrder = state.allOrders.find((o) => o.id === orderId);
 
   feedback.style.color = "var(--danger)";
   feedback.textContent = "";
@@ -752,10 +844,12 @@ async function handleUpdateOrder() {
     customer_name: customerName,
     whatsapp: whatsapp,
     items: state.editCartItems.map((i) => ({ song_id: i.songId, title: i.title, price: i.price })),
-    total: total, // ใช้ยอดรวมตามที่กรอกในฟอร์ม (คำนวณอัตโนมัติ หรือแก้ไขเองก็ได้)
+    total,
     order_type: state.editOrderType, // "single" | "playlist"
     playlist_id: state.editOrderType === "playlist" && state.editSelectedPlaylist ? state.editSelectedPlaylist.id : null,
     playlist_name: state.editOrderType === "playlist" && state.editSelectedPlaylist ? getPlaylistName(state.editSelectedPlaylist) : null,
+    store_name: existingOrder?.store_name || state.storeName,
+    receipt_number: existingOrder?.receipt_number || getReceiptNumber(orderId, existingOrder?.created_at),
     updated_at: new Date().toISOString(),
   };
 
@@ -763,6 +857,7 @@ async function handleUpdateOrder() {
     await updateDoc(doc(db, "orders", orderId), updatedData);
     closeEditOrderModal();
     await refreshDashboardAndHistory();
+    openReceipt(orderId);
   } catch (err) {
     feedback.textContent = "บันทึกไม่สำเร็จ: " + err.message;
   }
@@ -812,13 +907,16 @@ async function refreshDashboardAndHistory() {
 async function handleSubmitOrder() {
   const nameInput = document.getElementById("ordCustomerName");
   const whatsappInput = document.getElementById("ordCustomerWhatsapp");
-  const totalInput = document.getElementById("ordCartTotal");
   const feedback = document.getElementById("ordFormFeedback");
   const btn = document.getElementById("ordSubmitBtn");
 
   const customerName = nameInput.value.trim();
   const whatsapp = whatsappInput.value.trim();
-  const total = Number(totalInput.value);
+  const total = calculateOrderTotal(
+    state.orderType,
+    state.cartItems,
+    state.selectedPlaylist
+  );
 
   feedback.textContent = "";
   feedback.style.color = "var(--danger)";
@@ -847,16 +945,19 @@ async function handleSubmitOrder() {
     customer_name: customerName,
     whatsapp: whatsapp,
     items: state.cartItems.map((i) => ({ song_id: i.songId, title: i.title, price: i.price })),
-    total: total, // ใช้ยอดรวมตามที่กรอกในฟอร์ม (คำนวณอัตโนมัติ หรือแก้ไขเองก็ได้)
+    total,
     order_type: state.orderType, // "single" | "playlist" — ใช้แยกสถิติใน Dashboard
     playlist_id: state.orderType === "playlist" && state.selectedPlaylist ? state.selectedPlaylist.id : null,
     playlist_name: state.orderType === "playlist" && state.selectedPlaylist ? getPlaylistName(state.selectedPlaylist) : null,
+    store_name: state.storeName,
     status: "pending_verify",
     created_at: new Date().toISOString(),
   };
 
   try {
-    await addDoc(collection(db, "orders"), order);
+    const orderRef = doc(collection(db, "orders"));
+    order.receipt_number = getReceiptNumber(orderRef.id, order.created_at);
+    await setDoc(orderRef, order);
 
     nameInput.value = "";
     whatsappInput.value = "";
@@ -876,6 +977,7 @@ async function handleSubmitOrder() {
     feedback.textContent = `บันทึกออเดอร์ของ ${customerName} เรียบร้อยแล้ว ✓`;
 
     await refreshDashboardAndHistory();
+    openReceipt(orderRef.id);
   } catch (err) {
     feedback.textContent = "บันทึกไม่สำเร็จ: " + err.message;
   }
@@ -892,9 +994,14 @@ export async function initOrdersView() {
 
   try {
     // โหลดทั้งเพลงและเพลย์ลิสต์ (ราคาเหมา) พร้อมกัน เพื่อให้ระบบขายยกเพลย์ลิสต์ใช้งานได้ทันที
-    const [songs, playlists] = await Promise.all([loadSongsFromDatabase(), loadPlaylistsFromDatabase()]);
+    const [songs, playlists, storeName] = await Promise.all([
+      loadSongsFromDatabase(),
+      loadPlaylistsFromDatabase(),
+      loadStoreName(),
+    ]);
     state.songs = songs;
     state.playlists = playlists;
+    state.storeName = storeName;
     loadingEl.style.display = "none";
   } catch (err) {
     loadingEl.textContent = "โหลดข้อมูลไม่สำเร็จ: " + err.message;
@@ -911,16 +1018,6 @@ export async function initOrdersView() {
     });
     document.getElementById("ordPlaylistSearch").addEventListener("input", debounce(handlePlaylistSearchInput, 200));
 
-    // เมื่อผู้ใช้พิมพ์ยอดรวมเอง ให้หยุดคำนวณอัตโนมัติจนกว่าตะกร้าจะเปลี่ยนอีกครั้ง
-    document.getElementById("ordCartTotal").addEventListener("input", () => {
-      state.cartTotalEdited = true;
-      const hintEl = document.getElementById("ordTotalHint");
-      const computed = state.orderType === "playlist" && state.selectedPlaylist
-        ? Number(state.selectedPlaylist.price || 0)
-        : calculateCartTotal(state.cartItems);
-      if (hintEl) hintEl.textContent = `ยอดรวม${state.orderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computed)}`;
-    });
-
     // ปุ่ม/ช่องค้นหาของ modal แก้ไขออเดอร์
     document.getElementById("eOrderSongSearch").addEventListener("input", debounce(handleEditSearchInput, 200));
     document.getElementById("eOrderSaveBtn").addEventListener("click", handleUpdateOrder);
@@ -935,13 +1032,10 @@ export async function initOrdersView() {
     });
     document.getElementById("eOrdPlaylistSearch").addEventListener("input", debounce(handleEditPlaylistSearchInput, 200));
 
-    document.getElementById("eOrderCartTotal").addEventListener("input", () => {
-      state.editCartTotalEdited = true;
-      const hintEl = document.getElementById("eOrderTotalHint");
-      const computed = state.editOrderType === "playlist" && state.editSelectedPlaylist
-        ? Number(state.editSelectedPlaylist.price || 0)
-        : calculateCartTotal(state.editCartItems);
-      if (hintEl) hintEl.textContent = `ยอดรวม${state.editOrderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computed)}`;
+    document.getElementById("receiptClose").addEventListener("click", closeReceipt);
+    document.getElementById("receiptPrintBtn").addEventListener("click", () => window.print());
+    document.getElementById("receiptBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "receiptBackdrop") closeReceipt();
     });
 
     state.listenersBound = true;
