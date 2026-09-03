@@ -4,8 +4,17 @@
 // ===================================================
 import { db } from "./firebase-init.js";
 import {
-  collection, addDoc, getDocs, query, orderBy, where
+  collection, addDoc, getDocs, query, orderBy, where, doc, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ---------------- สถานะออเดอร์ (4 สถานะ) ---------------- */
+const STATUS_ORDER = ["pending_verify", "processing", "completed", "cancelled"];
+const STATUS_CONFIG = {
+  pending_verify: { emoji: "🟡", label: "รอตรวจสอบการโอน", color: "#F5B400", bg: "rgba(245,180,0,.15)" },
+  processing:     { emoji: "🔵", label: "ชำระเงินแล้ว - กำลังส่งเพลง", color: "#3B9EFF", bg: "rgba(59,158,255,.15)" },
+  completed:      { emoji: "🟢", label: "สำเร็จ", color: "var(--success)", bg: "rgba(41,204,113,.15)" },
+  cancelled:      { emoji: "🔴", label: "ยกเลิก", color: "var(--danger)", bg: "rgba(255,107,107,.15)" },
+};
 
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -17,6 +26,8 @@ const state = {
   songs: [],        // เพลงทั้งหมด (status: active) จาก collection "songs"
   searchResults: [],
   cartItems: [],     // เพลงที่เลือกไว้ในออเดอร์ที่กำลังกรอก
+  allOrders: [],      // แคชออเดอร์ล่าสุดที่โหลดมา (ใช้กรองสถานะโดยไม่ต้องโหลดซ้ำ)
+  historyFilter: "all", // สถานะที่กำลังกรองดูในประวัติออเดอร์
   listenersBound: false, // กันการผูก event ซ้ำเมื่อเปิดหน้านี้หลายครั้ง
 };
 
@@ -39,9 +50,13 @@ function calculateCartTotal(items) {
   return items.reduce((sum, item) => sum + item.price, 0);
 }
 function calculateStats(orders) {
+  // totalOrders = ออเดอร์ทั้งหมดทุกสถานะ (ปริมาณงานรวม)
+  // totalSongsSold / totalRevenue = นับเฉพาะออเดอร์ที่ "สำเร็จ" แล้วเท่านั้น
+  // เพื่อไม่ให้ออเดอร์ที่ยังรอตรวจสอบหรือถูกยกเลิกไปปนกับยอดขายจริง
   const totalOrders = orders.length;
-  const totalSongsSold = orders.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0);
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const completed = orders.filter((o) => o.status === "completed");
+  const totalSongsSold = completed.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0);
+  const totalRevenue = completed.reduce((sum, o) => sum + (o.total || 0), 0);
   return { totalOrders, totalSongsSold, totalRevenue };
 }
 
@@ -113,27 +128,70 @@ function renderStats(orders) {
   document.getElementById("ordStatRevenue").textContent = formatLAK(stats.totalRevenue);
 }
 
+/* ---------------- Render: แถบกรองสถานะ ---------------- */
+function renderFilterPills() {
+  const wrap = document.getElementById("ordStatusFilter");
+  if (!wrap) return;
+  const filters = [{ key: "all", label: "ทั้งหมด" }].concat(
+    STATUS_ORDER.map((k) => ({ key: k, label: `${STATUS_CONFIG[k].emoji} ${STATUS_CONFIG[k].label}` }))
+  );
+  wrap.innerHTML = filters.map((f) =>
+    `<button data-filter="${f.key}" class="${state.historyFilter === f.key ? "active" : ""}">${f.label}</button>`
+  ).join("");
+  wrap.querySelectorAll("[data-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.historyFilter = btn.getAttribute("data-filter");
+      renderFilterPills();
+      renderHistory();
+    });
+  });
+}
+
 /* ---------------- Render: ประวัติออเดอร์ ---------------- */
-function renderHistory(orders) {
+function renderHistory() {
   const wrap = document.getElementById("ordHistoryList");
+  const orders = state.historyFilter === "all"
+    ? state.allOrders
+    : state.allOrders.filter((o) => o.status === state.historyFilter);
+
   if (orders.length === 0) {
-    wrap.innerHTML = `<div class="empty-state">ยังไม่มีออเดอร์</div>`;
+    wrap.innerHTML = `<div class="empty-state">ไม่พบออเดอร์ในสถานะนี้</div>`;
     return;
   }
   wrap.innerHTML = orders.map((o) => {
     const date = o.created_at ? new Date(o.created_at) : null;
     const dateStr = date ? date.toLocaleDateString("th-TH") + " " + date.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "-";
     const songNames = (o.items || []).map(i => escapeHtml(i.title)).join(", ");
+    const cfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.pending_verify;
+    const options = STATUS_ORDER.map((k) =>
+      `<option value="${k}" ${o.status === k ? "selected" : ""}>${STATUS_CONFIG[k].emoji} ${STATUS_CONFIG[k].label}</option>`
+    ).join("");
     return `
-      <div class="list-row">
+      <div class="list-row" style="flex-direction:column;align-items:stretch;gap:8px;">
         <div class="info">
           <div class="n1">${escapeHtml(o.customer_name)} · ${formatLAK(o.total)}</div>
           <div class="n2">${dateStr} · ${escapeHtml(o.whatsapp)}</div>
           <div class="n2">${songNames}</div>
         </div>
+        <span class="status-badge" style="background:${cfg.bg};color:${cfg.color};">${cfg.emoji} ${cfg.label}</span>
+        <select class="status-select" data-order-id="${o.id}">${options}</select>
       </div>
     `;
   }).join("");
+
+  wrap.querySelectorAll("[data-order-id]").forEach((sel) => {
+    sel.addEventListener("change", () => handleStatusChange(sel.getAttribute("data-order-id"), sel.value));
+  });
+}
+
+/* ---------------- เปลี่ยนสถานะออเดอร์ ---------------- */
+async function handleStatusChange(orderId, newStatus) {
+  try {
+    await updateDoc(doc(db, "orders", orderId), { status: newStatus, updated_at: new Date().toISOString() });
+    await refreshDashboardAndHistory();
+  } catch (err) {
+    alert("เปลี่ยนสถานะไม่สำเร็จ: " + err.message);
+  }
 }
 
 /* ---------------- Event handlers ---------------- */
@@ -166,8 +224,10 @@ function removeFromCart(index) {
 
 async function refreshDashboardAndHistory() {
   const orders = await loadOrdersFromDatabase();
+  state.allOrders = orders;
   renderStats(orders);
-  renderHistory(orders);
+  renderFilterPills();
+  renderHistory();
 }
 
 async function handleSubmitOrder() {
@@ -199,7 +259,7 @@ async function handleSubmitOrder() {
     whatsapp: whatsapp,
     items: state.cartItems.map((i) => ({ song_id: i.songId, title: i.title, price: i.price })),
     total: calculateCartTotal(state.cartItems),
-    status: "new",
+    status: "pending_verify",
     created_at: new Date().toISOString(),
   };
 
