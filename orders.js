@@ -24,19 +24,28 @@ function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = set
 
 const state = {
   songs: [],        // เพลงทั้งหมด (status: active) จาก collection "songs"
+  playlists: [],     // เพลย์ลิสต์ที่ตั้งราคาเหมาไว้แล้ว จาก collection "playlists"
   searchResults: [],
   cartItems: [],     // เพลงที่เลือกไว้ในออเดอร์ที่กำลังกรอก
   allOrders: [],      // แคชออเดอร์ล่าสุดที่โหลดมา (ใช้กรองสถานะโดยไม่ต้องโหลดซ้ำ)
   historyFilter: "all", // สถานะที่กำลังกรองดูในประวัติออเดอร์
   listenersBound: false, // กันการผูก event ซ้ำเมื่อเปิดหน้านี้หลายครั้ง
 
+  // ---- ประเภทออเดอร์ที่กำลังกรอก: "single" (เพลงเดี่ยว) หรือ "playlist" (ยกเพลย์ลิสต์) ----
+  orderType: "single",
+  playlistSearchResults: [],
+  selectedPlaylist: null, // { id, name, price, ... } เพลย์ลิสต์ที่เลือกในฟอร์มสร้างออเดอร์ใหม่
+
   // ---- สถานะสำหรับโหมดแก้ไขออเดอร์ (modal) ----
   editingOrderId: null,   // id ของออเดอร์ที่กำลังแก้ไขอยู่ (null = ไม่ได้เปิด modal)
   editCartItems: [],      // เพลงในตะกร้าของ modal แก้ไข
   editSearchResults: [],  // ผลค้นหาเพลงใน modal แก้ไข
+  editOrderType: "single",
+  editPlaylistSearchResults: [],
+  editSelectedPlaylist: null, // เพลย์ลิสต์ที่เลือกใน modal แก้ไข
 
   // ---- ธงบอกว่า "ยอดรวม" ถูกผู้ใช้แก้ไขเองหรือไม่ ----
-  // true = ใช้ค่าที่ผู้ใช้พิมพ์เอง, false = คำนวณอัตโนมัติจากราคาเพลงในตะกร้า
+  // true = ใช้ค่าที่ผู้ใช้พิมพ์เอง, false = คำนวณอัตโนมัติจากราคาเพลงในตะกร้า (หรือราคาเหมาเพลย์ลิสต์)
   cartTotalEdited: false,     // สำหรับฟอร์มสร้างออเดอร์ใหม่
   editCartTotalEdited: false, // สำหรับ modal แก้ไขออเดอร์
 };
@@ -55,6 +64,23 @@ async function loadOrdersFromDatabase() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+/* ---------------- โหลดเพลย์ลิสต์จริงจาก Firestore (สำหรับขายยกเพลย์ลิสต์) ----------------
+   หมายเหตุ: เอาไว้เฉพาะเพลย์ลิสต์ที่ตั้ง "ราคาเหมา" ไว้แล้ว (price > 0) เพราะถือว่าเป็นชุดที่ขายทั้งชุดได้
+   เพลย์ลิสต์ที่ไม่ได้ตั้งราคา (ปล่อยว่าง/0) จะไม่โผล่ในช่องค้นหานี้ */
+async function loadPlaylistsFromDatabase() {
+  const snap = await getDocs(collection(db, "playlists"));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(p => Number(p.price || 0) > 0);
+}
+
+/* ---------------- หาเพลงทั้งหมดที่อยู่ในเพลย์ลิสต์ที่เลือก ----------------
+   อ้างอิงจากฟิลด์ playlist_id บนเอกสารเพลงแต่ละเพลง (บันทึกไว้ตอนเพิ่ม/แก้ไขเพลงในหน้า "จัดการเพลง")
+   ถ้าฐานข้อมูลจริงเก็บฟิลด์นี้ชื่ออื่น ให้แก้ตรง s.playlist_id ด้านล่างนี้จุดเดียว */
+function getSongsInPlaylist(playlistId) {
+  return state.songs.filter((s) => s.playlist_id === playlistId);
+}
+
 /* ---------------- คำนวณ ---------------- */
 function calculateCartTotal(items) {
   return items.reduce((sum, item) => sum + item.price, 0);
@@ -67,7 +93,11 @@ function calculateStats(orders) {
   const completed = orders.filter((o) => o.status === "completed");
   const totalSongsSold = completed.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0);
   const totalRevenue = completed.reduce((sum, o) => sum + (o.total || 0), 0);
-  return { totalOrders, totalSongsSold, totalRevenue };
+  // แยกนับว่าออเดอร์ที่สำเร็จแล้วเป็นแบบ "เพลงเดี่ยว" หรือ "ยกเพลย์ลิสต์" กี่ออเดอร์
+  // ออเดอร์เก่าที่ไม่มีฟิลด์ order_type (สร้างก่อนอัปเดตนี้) ให้นับเป็นเพลงเดี่ยวไว้ก่อน
+  const singleCount = completed.filter((o) => (o.order_type || "single") === "single").length;
+  const playlistCount = completed.filter((o) => o.order_type === "playlist").length;
+  return { totalOrders, totalSongsSold, totalRevenue, singleCount, playlistCount };
 }
 
 /* ---------------- Render: ผลค้นหาเพลง (ฟอร์มสร้างออเดอร์ใหม่) ---------------- */
@@ -111,15 +141,30 @@ function renderCart() {
   const hintEl = document.getElementById("ordTotalHint");
   container.innerHTML = "";
 
+  if (state.orderType === "playlist" && state.selectedPlaylist) {
+    const badge = document.createElement("div");
+    badge.style.cssText = "font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;";
+    badge.textContent = `🎶 ยกเพลย์ลิสต์: ${state.selectedPlaylist.name} (${state.cartItems.length} เพลง)`;
+    container.appendChild(badge);
+  }
+
   if (state.cartItems.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="padding:10px 0;">ยังไม่ได้เลือกเพลง</div>`;
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.style.padding = "10px 0";
+    empty.textContent = state.orderType === "playlist" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "ยังไม่ได้เลือกเพลง";
+    container.appendChild(empty);
   } else {
     state.cartItems.forEach((item, index) => {
       const row = document.createElement("div");
       row.className = "list-row";
+      // โหมดยกเพลย์ลิสต์: เพลงถูกดึงมาอัตโนมัติทั้งชุด ไม่ให้ลบทีละเพลง (ลบได้แค่ยกเลิกทั้งเพลย์ลิสต์)
+      const removeBtn = state.orderType === "playlist"
+        ? ""
+        : `<div class="row-actions"><button class="icon-btn danger" data-remove="${index}">🗑</button></div>`;
       row.innerHTML = `
         <div class="info"><div class="n1">${escapeHtml(item.title)}</div><div class="n2">${formatLAK(item.price)}</div></div>
-        <div class="row-actions"><button class="icon-btn danger" data-remove="${index}">🗑</button></div>
+        ${removeBtn}
       `;
       container.appendChild(row);
     });
@@ -128,16 +173,122 @@ function renderCart() {
     });
   }
 
-  const computedTotal = calculateCartTotal(state.cartItems);
-  // ถ้าผู้ใช้ยังไม่ได้แก้ยอดรวมเอง ให้ค่าตามผลรวมของเพลงในตะกร้าเสมอ
+  // โหมดยกเพลย์ลิสต์: ใช้ "ราคาเหมา" ของเพลย์ลิสต์ ไม่ใช่ผลรวมราคาเพลงแต่ละเพลง
+  const computedTotal = state.orderType === "playlist" && state.selectedPlaylist
+    ? Number(state.selectedPlaylist.price || 0)
+    : calculateCartTotal(state.cartItems);
+  // ถ้าผู้ใช้ยังไม่ได้แก้ยอดรวมเอง ให้ค่าตามผลรวม/ราคาเหมาเสมอ
   if (!state.cartTotalEdited) {
     totalEl.value = computedTotal;
   }
   if (hintEl) {
     hintEl.textContent = state.cartTotalEdited
-      ? `ยอดรวมจากเพลงที่เลือก: ${formatLAK(computedTotal)}`
+      ? `ยอดรวม${state.orderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computedTotal)}`
       : "";
   }
+}
+
+/* ---------------- Render: ผลค้นหาเพลย์ลิสต์ (ฟอร์มสร้างออเดอร์ใหม่) ---------------- */
+function renderPlaylistSearchResults() {
+  const container = document.getElementById("ordPlaylistResults");
+  if (!container) return;
+  container.innerHTML = "";
+  if (state.selectedPlaylist) return; // เลือกแล้ว ไม่ต้องโชว์ผลค้นหาซ้ำ
+  if (state.playlistSearchResults.length === 0) return;
+
+  state.playlistSearchResults.forEach((pl) => {
+    const songCount = getSongsInPlaylist(pl.id).length;
+    const card = document.createElement("div");
+    card.className = "playlist-result-card";
+    card.innerHTML = `
+      <img src="${pl.cover_url || ""}">
+      <div class="info" style="flex:1;">
+        <div class="n1">${escapeHtml(pl.name)}</div>
+        <div class="n2">${songCount} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => selectPlaylist(pl.id));
+    container.appendChild(card);
+  });
+}
+
+/* ---------------- Render: การ์ดเพลย์ลิสต์ที่เลือกไว้ (ฟอร์มสร้างออเดอร์ใหม่) ---------------- */
+function renderPlaylistSelected() {
+  const container = document.getElementById("ordPlaylistSelected");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!state.selectedPlaylist) return;
+
+  const pl = state.selectedPlaylist;
+  const card = document.createElement("div");
+  card.className = "playlist-selected-card";
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;">🎶 ${escapeHtml(pl.name)}</div>
+      <button class="icon-btn" id="ordPlaylistClearBtn">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);">${state.cartItems.length} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
+  `;
+  container.appendChild(card);
+  document.getElementById("ordPlaylistClearBtn").addEventListener("click", clearSelectedPlaylist);
+}
+
+/* ---------------- เลือกเพลย์ลิสต์: ดึงเพลงทั้งชุด + ราคาเหมา มาลงออเดอร์เดียวจบ ---------------- */
+function selectPlaylist(playlistId) {
+  const pl = state.playlists.find((p) => p.id === playlistId);
+  if (!pl) return;
+
+  const songs = getSongsInPlaylist(pl.id);
+  state.selectedPlaylist = pl;
+  state.cartItems = songs.map((s) => ({ songId: s.id, title: s.song_name, price: Number(s.price || 0) }));
+  state.cartTotalEdited = false; // กลับไปใช้ราคาเหมาของเพลย์ลิสต์เป็นค่าตั้งต้นเสมอ
+  document.getElementById("ordPlaylistSearch").value = "";
+  state.playlistSearchResults = [];
+
+  renderPlaylistSelected();
+  renderPlaylistSearchResults();
+  renderCart();
+}
+
+function clearSelectedPlaylist() {
+  state.selectedPlaylist = null;
+  state.cartItems = [];
+  state.cartTotalEdited = false;
+  renderPlaylistSelected();
+  renderPlaylistSearchResults();
+  renderCart();
+}
+
+function handlePlaylistSearchInput(e) {
+  const q = e.target.value.trim().toLowerCase();
+  state.playlistSearchResults = !q ? [] : state.playlists.filter((p) => (p.name || "").toLowerCase().includes(q));
+  renderPlaylistSearchResults();
+}
+
+/* ---------------- สลับประเภทออเดอร์: เพลงเดี่ยว ↔ ยกเพลย์ลิสต์ (ฟอร์มสร้างออเดอร์ใหม่) ---------------- */
+function switchOrderType(type) {
+  if (state.orderType === type) return;
+  state.orderType = type;
+
+  document.querySelectorAll('#ordTypeToggle [data-order-type]').forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-order-type") === type);
+  });
+  document.getElementById("ordSingleSection").style.display = type === "single" ? "" : "none";
+  document.getElementById("ordPlaylistSection").style.display = type === "playlist" ? "" : "none";
+
+  // ล้างสิ่งที่เลือกไว้จากโหมดก่อนหน้า กันข้อมูลเพลงเดี่ยว/เพลย์ลิสต์ปนกัน
+  state.cartItems = [];
+  state.cartTotalEdited = false;
+  state.selectedPlaylist = null;
+  state.searchResults = [];
+  state.playlistSearchResults = [];
+  document.getElementById("ordSongSearch").value = "";
+  document.getElementById("ordPlaylistSearch").value = "";
+
+  renderSearchResults();
+  renderPlaylistSelected();
+  renderPlaylistSearchResults();
+  renderCart();
 }
 
 /* ---------------- Render: Dashboard สถิติออเดอร์ ---------------- */
@@ -146,6 +297,8 @@ function renderStats(orders) {
   document.getElementById("ordStatCount").textContent = stats.totalOrders.toLocaleString("en-US");
   document.getElementById("ordStatSongs").textContent = stats.totalSongsSold.toLocaleString("en-US");
   document.getElementById("ordStatRevenue").textContent = formatLAK(stats.totalRevenue);
+  document.getElementById("ordStatSingleCount").textContent = stats.singleCount.toLocaleString("en-US");
+  document.getElementById("ordStatPlaylistCount").textContent = stats.playlistCount.toLocaleString("en-US");
 }
 
 /* ---------------- Render: แถบกรองสถานะ ---------------- */
@@ -186,9 +339,14 @@ function renderHistory() {
     const options = STATUS_ORDER.map((k) =>
       `<option value="${k}" ${o.status === k ? "selected" : ""}>${STATUS_CONFIG[k].emoji} ${STATUS_CONFIG[k].label}</option>`
     ).join("");
+    const isPlaylistOrder = o.order_type === "playlist";
+    const typeBadge = isPlaylistOrder
+      ? `<span class="order-type-badge" style="background:rgba(122,92,255,.15);color:var(--accent);">🎶 ยกเพลย์ลิสต์${o.playlist_name ? " · " + escapeHtml(o.playlist_name) : ""}</span>`
+      : `<span class="order-type-badge" style="background:rgba(255,255,255,.08);color:var(--text-dim);">🎵 เพลงเดี่ยว</span>`;
     return `
       <div class="list-row" style="flex-direction:column;align-items:stretch;gap:8px;">
         <div class="info">
+          ${typeBadge}
           <div class="n1">${escapeHtml(o.customer_name)} · ${formatLAK(o.total)}</div>
           <div class="n2">${dateStr} · ${escapeHtml(o.whatsapp)}</div>
           <div class="n2">${songNames}</div>
@@ -312,15 +470,29 @@ function renderEditCart() {
   if (!container || !totalEl) return;
   container.innerHTML = "";
 
+  if (state.editOrderType === "playlist" && state.editSelectedPlaylist) {
+    const badge = document.createElement("div");
+    badge.style.cssText = "font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;";
+    badge.textContent = `🎶 ยกเพลย์ลิสต์: ${state.editSelectedPlaylist.name} (${state.editCartItems.length} เพลง)`;
+    container.appendChild(badge);
+  }
+
   if (state.editCartItems.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="padding:10px 0;">ยังไม่ได้เลือกเพลง</div>`;
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.style.padding = "10px 0";
+    empty.textContent = state.editOrderType === "playlist" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "ยังไม่ได้เลือกเพลง";
+    container.appendChild(empty);
   } else {
     state.editCartItems.forEach((item, index) => {
       const row = document.createElement("div");
       row.className = "list-row";
+      const removeBtn = state.editOrderType === "playlist"
+        ? ""
+        : `<div class="row-actions"><button class="icon-btn danger" data-eremove="${index}">🗑</button></div>`;
       row.innerHTML = `
         <div class="info"><div class="n1">${escapeHtml(item.title)}</div><div class="n2">${formatLAK(item.price)}</div></div>
-        <div class="row-actions"><button class="icon-btn danger" data-eremove="${index}">🗑</button></div>
+        ${removeBtn}
       `;
       container.appendChild(row);
     });
@@ -329,13 +501,15 @@ function renderEditCart() {
     });
   }
 
-  const computedTotal = calculateCartTotal(state.editCartItems);
+  const computedTotal = state.editOrderType === "playlist" && state.editSelectedPlaylist
+    ? Number(state.editSelectedPlaylist.price || 0)
+    : calculateCartTotal(state.editCartItems);
   if (!state.editCartTotalEdited) {
     totalEl.value = computedTotal;
   }
   if (hintEl) {
     hintEl.textContent = state.editCartTotalEdited
-      ? `ยอดรวมจากเพลงที่เลือก: ${formatLAK(computedTotal)}`
+      ? `ยอดรวม${state.editOrderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computedTotal)}`
       : "";
   }
 }
@@ -369,6 +543,106 @@ function handleEditSearchInput(e) {
   renderEditSearchResults();
 }
 
+/* ---------------- Render: ผลค้นหาเพลย์ลิสต์ (modal แก้ไขออเดอร์) ---------------- */
+function renderEditPlaylistSearchResults() {
+  const container = document.getElementById("eOrdPlaylistResults");
+  if (!container) return;
+  container.innerHTML = "";
+  if (state.editSelectedPlaylist) return;
+  if (state.editPlaylistSearchResults.length === 0) return;
+
+  state.editPlaylistSearchResults.forEach((pl) => {
+    const songCount = getSongsInPlaylist(pl.id).length;
+    const card = document.createElement("div");
+    card.className = "playlist-result-card";
+    card.innerHTML = `
+      <img src="${pl.cover_url || ""}">
+      <div class="info" style="flex:1;">
+        <div class="n1">${escapeHtml(pl.name)}</div>
+        <div class="n2">${songCount} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => selectEditPlaylist(pl.id));
+    container.appendChild(card);
+  });
+}
+
+function renderEditPlaylistSelected() {
+  const container = document.getElementById("eOrdPlaylistSelected");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!state.editSelectedPlaylist) return;
+
+  const pl = state.editSelectedPlaylist;
+  const card = document.createElement("div");
+  card.className = "playlist-selected-card";
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;">🎶 ${escapeHtml(pl.name)}</div>
+      <button class="icon-btn" id="eOrdPlaylistClearBtn">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);">${state.editCartItems.length} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
+  `;
+  container.appendChild(card);
+  document.getElementById("eOrdPlaylistClearBtn").addEventListener("click", clearEditSelectedPlaylist);
+}
+
+function selectEditPlaylist(playlistId) {
+  const pl = state.playlists.find((p) => p.id === playlistId);
+  if (!pl) return;
+
+  const songs = getSongsInPlaylist(pl.id);
+  state.editSelectedPlaylist = pl;
+  state.editCartItems = songs.map((s) => ({ songId: s.id, title: s.song_name, price: Number(s.price || 0) }));
+  state.editCartTotalEdited = false;
+  document.getElementById("eOrdPlaylistSearch").value = "";
+  state.editPlaylistSearchResults = [];
+
+  renderEditPlaylistSelected();
+  renderEditPlaylistSearchResults();
+  renderEditCart();
+}
+
+function clearEditSelectedPlaylist() {
+  state.editSelectedPlaylist = null;
+  state.editCartItems = [];
+  state.editCartTotalEdited = false;
+  renderEditPlaylistSelected();
+  renderEditPlaylistSearchResults();
+  renderEditCart();
+}
+
+function handleEditPlaylistSearchInput(e) {
+  const q = e.target.value.trim().toLowerCase();
+  state.editPlaylistSearchResults = !q ? [] : state.playlists.filter((p) => (p.name || "").toLowerCase().includes(q));
+  renderEditPlaylistSearchResults();
+}
+
+/* ---------------- สลับประเภทออเดอร์ในโหมดแก้ไข (ไม่ล้างข้อมูลอัตโนมัติ ยกเว้นผู้ใช้กดสลับเอง) ---------------- */
+function switchEditOrderType(type) {
+  if (state.editOrderType === type) return;
+  state.editOrderType = type;
+
+  document.querySelectorAll('#eOrdTypeToggle [data-edit-order-type]').forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-edit-order-type") === type);
+  });
+  document.getElementById("eOrdSingleSection").style.display = type === "single" ? "" : "none";
+  document.getElementById("eOrdPlaylistSection").style.display = type === "playlist" ? "" : "none";
+
+  state.editCartItems = [];
+  state.editCartTotalEdited = false;
+  state.editSelectedPlaylist = null;
+  state.editSearchResults = [];
+  state.editPlaylistSearchResults = [];
+  document.getElementById("eOrderSongSearch").value = "";
+  document.getElementById("eOrdPlaylistSearch").value = "";
+
+  renderEditSearchResults();
+  renderEditPlaylistSelected();
+  renderEditPlaylistSearchResults();
+  renderEditCart();
+}
+
 /* เปิด modal แก้ไข พร้อมกรอกข้อมูลออเดอร์เดิมลงในฟอร์ม */
 function openEditOrderModal(orderId) {
   const order = state.allOrders.find((o) => o.id === orderId);
@@ -379,20 +653,39 @@ function openEditOrderModal(orderId) {
     songId: i.song_id, title: i.title, price: Number(i.price || 0),
   }));
   state.editSearchResults = [];
+  state.editPlaylistSearchResults = [];
+
+  // ตั้งค่าประเภทออเดอร์และเพลย์ลิสต์ที่เลือกไว้ (ถ้าออเดอร์นี้ถูกสร้างแบบยกเพลย์ลิสต์)
+  const orderType = order.order_type === "playlist" ? "playlist" : "single";
+  state.editOrderType = orderType;
+  state.editSelectedPlaylist = orderType === "playlist" && order.playlist_id
+    ? (state.playlists.find((p) => p.id === order.playlist_id) || { id: order.playlist_id, name: order.playlist_name || "เพลย์ลิสต์", price: order.total })
+    : null;
+
+  document.querySelectorAll('#eOrdTypeToggle [data-edit-order-type]').forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-edit-order-type") === orderType);
+  });
+  document.getElementById("eOrdSingleSection").style.display = orderType === "single" ? "" : "none";
+  document.getElementById("eOrdPlaylistSection").style.display = orderType === "playlist" ? "" : "none";
 
   document.getElementById("eOrderCustomerName").value = order.customer_name || "";
   document.getElementById("eOrderCustomerWhatsapp").value = order.whatsapp || "";
   document.getElementById("eOrderSongSearch").value = "";
+  document.getElementById("eOrdPlaylistSearch").value = "";
   document.getElementById("eOrderFeedback").textContent = "";
 
-  // ถ้ายอดรวมที่บันทึกไว้เดิมไม่ตรงกับผลรวมราคาเพลง (เคยถูกแก้ไขเองมาก่อน)
+  // ถ้ายอดรวมที่บันทึกไว้เดิมไม่ตรงกับผลรวมราคาเพลง/ราคาเหมา (เคยถูกแก้ไขเองมาก่อน)
   // ให้ถือว่าเป็นค่าที่แก้ไขเองและแสดงยอดเดิมนั้นไว้ก่อน แทนที่จะคำนวณทับ
-  const computedTotal = calculateCartTotal(state.editCartItems);
+  const computedTotal = orderType === "playlist" && state.editSelectedPlaylist
+    ? Number(state.editSelectedPlaylist.price || 0)
+    : calculateCartTotal(state.editCartItems);
   const savedTotal = Number(order.total || 0);
   state.editCartTotalEdited = savedTotal !== computedTotal;
 
   renderEditCart();
   renderEditSearchResults();
+  renderEditPlaylistSelected();
+  renderEditPlaylistSearchResults();
   document.getElementById("eOrderCartTotal").value = savedTotal;
 
   const backdrop = document.getElementById("orderFormBackdrop");
@@ -408,6 +701,9 @@ function closeEditOrderModal() {
   state.editCartItems = [];
   state.editSearchResults = [];
   state.editCartTotalEdited = false;
+  state.editOrderType = "single";
+  state.editSelectedPlaylist = null;
+  state.editPlaylistSearchResults = [];
 }
 
 /* บันทึกการแก้ไขออเดอร์ลง Firestore จริง */
@@ -432,6 +728,10 @@ async function handleUpdateOrder() {
     feedback.textContent = "กรุณากรอกชื่อลูกค้าและเบอร์ WhatsApp";
     return;
   }
+  if (state.editOrderType === "playlist" && !state.editSelectedPlaylist) {
+    feedback.textContent = "กรุณาเลือกเพลย์ลิสต์ที่ต้องการขาย";
+    return;
+  }
   if (state.editCartItems.length === 0) {
     feedback.textContent = "กรุณาเลือกเพลงอย่างน้อย 1 เพลง";
     return;
@@ -449,6 +749,9 @@ async function handleUpdateOrder() {
     whatsapp: whatsapp,
     items: state.editCartItems.map((i) => ({ song_id: i.songId, title: i.title, price: i.price })),
     total: total, // ใช้ยอดรวมตามที่กรอกในฟอร์ม (คำนวณอัตโนมัติ หรือแก้ไขเองก็ได้)
+    order_type: state.editOrderType, // "single" | "playlist"
+    playlist_id: state.editOrderType === "playlist" && state.editSelectedPlaylist ? state.editSelectedPlaylist.id : null,
+    playlist_name: state.editOrderType === "playlist" && state.editSelectedPlaylist ? state.editSelectedPlaylist.name : null,
     updated_at: new Date().toISOString(),
   };
 
@@ -520,6 +823,10 @@ async function handleSubmitOrder() {
     feedback.textContent = "กรุณากรอกชื่อลูกค้าและเบอร์ WhatsApp";
     return;
   }
+  if (state.orderType === "playlist" && !state.selectedPlaylist) {
+    feedback.textContent = "กรุณาเลือกเพลย์ลิสต์ที่ต้องการขาย";
+    return;
+  }
   if (state.cartItems.length === 0) {
     feedback.textContent = "กรุณาเลือกเพลงอย่างน้อย 1 เพลง";
     return;
@@ -537,6 +844,9 @@ async function handleSubmitOrder() {
     whatsapp: whatsapp,
     items: state.cartItems.map((i) => ({ song_id: i.songId, title: i.title, price: i.price })),
     total: total, // ใช้ยอดรวมตามที่กรอกในฟอร์ม (คำนวณอัตโนมัติ หรือแก้ไขเองก็ได้)
+    order_type: state.orderType, // "single" | "playlist" — ใช้แยกสถิติใน Dashboard
+    playlist_id: state.orderType === "playlist" && state.selectedPlaylist ? state.selectedPlaylist.id : null,
+    playlist_name: state.orderType === "playlist" && state.selectedPlaylist ? state.selectedPlaylist.name : null,
     status: "pending_verify",
     created_at: new Date().toISOString(),
   };
@@ -547,11 +857,16 @@ async function handleSubmitOrder() {
     nameInput.value = "";
     whatsappInput.value = "";
     document.getElementById("ordSongSearch").value = "";
+    document.getElementById("ordPlaylistSearch").value = "";
     state.cartItems = [];
     state.searchResults = [];
     state.cartTotalEdited = false;
+    state.selectedPlaylist = null;
+    state.playlistSearchResults = [];
     renderCart();
     renderSearchResults();
+    renderPlaylistSelected();
+    renderPlaylistSearchResults();
 
     feedback.style.color = "var(--success)";
     feedback.textContent = `บันทึกออเดอร์ของ ${customerName} เรียบร้อยแล้ว ✓`;
@@ -572,10 +887,13 @@ export async function initOrdersView() {
   loadingEl.textContent = "กำลังโหลดรายชื่อเพลง...";
 
   try {
-    state.songs = await loadSongsFromDatabase();
+    // โหลดทั้งเพลงและเพลย์ลิสต์ (ราคาเหมา) พร้อมกัน เพื่อให้ระบบขายยกเพลย์ลิสต์ใช้งานได้ทันที
+    const [songs, playlists] = await Promise.all([loadSongsFromDatabase(), loadPlaylistsFromDatabase()]);
+    state.songs = songs;
+    state.playlists = playlists;
     loadingEl.style.display = "none";
   } catch (err) {
-    loadingEl.textContent = "โหลดรายชื่อเพลงไม่สำเร็จ: " + err.message;
+    loadingEl.textContent = "โหลดข้อมูลไม่สำเร็จ: " + err.message;
     return;
   }
 
@@ -583,11 +901,20 @@ export async function initOrdersView() {
     document.getElementById("ordSongSearch").addEventListener("input", debounce(handleSearchInput, 200));
     document.getElementById("ordSubmitBtn").addEventListener("click", handleSubmitOrder);
 
+    // ปุ่มสลับประเภทออเดอร์: เพลงเดี่ยว / ยกเพลย์ลิสต์ (ฟอร์มสร้างออเดอร์ใหม่)
+    document.querySelectorAll('#ordTypeToggle [data-order-type]').forEach((btn) => {
+      btn.addEventListener("click", () => switchOrderType(btn.getAttribute("data-order-type")));
+    });
+    document.getElementById("ordPlaylistSearch").addEventListener("input", debounce(handlePlaylistSearchInput, 200));
+
     // เมื่อผู้ใช้พิมพ์ยอดรวมเอง ให้หยุดคำนวณอัตโนมัติจนกว่าตะกร้าจะเปลี่ยนอีกครั้ง
     document.getElementById("ordCartTotal").addEventListener("input", () => {
       state.cartTotalEdited = true;
       const hintEl = document.getElementById("ordTotalHint");
-      if (hintEl) hintEl.textContent = `ยอดรวมจากเพลงที่เลือก: ${formatLAK(calculateCartTotal(state.cartItems))}`;
+      const computed = state.orderType === "playlist" && state.selectedPlaylist
+        ? Number(state.selectedPlaylist.price || 0)
+        : calculateCartTotal(state.cartItems);
+      if (hintEl) hintEl.textContent = `ยอดรวม${state.orderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computed)}`;
     });
 
     // ปุ่ม/ช่องค้นหาของ modal แก้ไขออเดอร์
@@ -597,22 +924,44 @@ export async function initOrdersView() {
     document.getElementById("orderFormBackdrop").addEventListener("click", (e) => {
       if (e.target.id === "orderFormBackdrop") closeEditOrderModal();
     });
+
+    // ปุ่มสลับประเภทออเดอร์ในโมดัลแก้ไข
+    document.querySelectorAll('#eOrdTypeToggle [data-edit-order-type]').forEach((btn) => {
+      btn.addEventListener("click", () => switchEditOrderType(btn.getAttribute("data-edit-order-type")));
+    });
+    document.getElementById("eOrdPlaylistSearch").addEventListener("input", debounce(handleEditPlaylistSearchInput, 200));
+
     document.getElementById("eOrderCartTotal").addEventListener("input", () => {
       state.editCartTotalEdited = true;
       const hintEl = document.getElementById("eOrderTotalHint");
-      if (hintEl) hintEl.textContent = `ยอดรวมจากเพลงที่เลือก: ${formatLAK(calculateCartTotal(state.editCartItems))}`;
+      const computed = state.editOrderType === "playlist" && state.editSelectedPlaylist
+        ? Number(state.editSelectedPlaylist.price || 0)
+        : calculateCartTotal(state.editCartItems);
+      if (hintEl) hintEl.textContent = `ยอดรวม${state.editOrderType === "playlist" ? "ราคาเหมาเพลย์ลิสต์" : "จากเพลงที่เลือก"}: ${formatLAK(computed)}`;
     });
 
     state.listenersBound = true;
   }
 
+  // รีเซ็ตฟอร์มสร้างออเดอร์ใหม่ทุกครั้งที่เปิดหน้านี้ กลับไปเริ่มที่โหมด "เพลงเดี่ยว" เสมอ
   state.cartItems = [];
   state.searchResults = [];
   state.cartTotalEdited = false;
+  state.orderType = "single";
+  state.selectedPlaylist = null;
+  state.playlistSearchResults = [];
+  document.querySelectorAll('#ordTypeToggle [data-order-type]').forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-order-type") === "single");
+  });
+  document.getElementById("ordSingleSection").style.display = "";
+  document.getElementById("ordPlaylistSection").style.display = "none";
   document.getElementById("ordSongSearch").value = "";
+  document.getElementById("ordPlaylistSearch").value = "";
   document.getElementById("ordFormFeedback").textContent = "";
   renderCart();
   renderSearchResults();
+  renderPlaylistSelected();
+  renderPlaylistSearchResults();
 
   await refreshDashboardAndHistory();
 }
