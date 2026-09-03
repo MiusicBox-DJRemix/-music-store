@@ -83,6 +83,22 @@
     </div>
 
     <!-- ===================== ORDERS VIEW (ใหม่) ===================== -->
+    <style>
+      #view-orders .status-filter { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px; margin:14px 0; }
+      #view-orders .status-filter button {
+        border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); color:var(--text-dim);
+        border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
+      }
+      #view-orders .status-filter button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+      #view-orders .status-badge {
+        display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:3px 10px;
+        font-size:12px; font-weight:700; width:fit-content;
+      }
+      #view-orders .status-select {
+        width:100%; background:var(--surface-2, rgba(255,255,255,.06)); color:var(--text);
+        border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:8px 10px; font-size:13px;
+      }
+    </style>
     <div id="view-orders" class="view" style="display:none;">
       <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
         <button class="icon-btn back-btn">←</button>
@@ -93,8 +109,8 @@
 
         <div class="stat-grid" style="margin-bottom:16px;">
           <div class="stat-card"><div class="num" id="ordStatCount">0</div><div class="label">ออเดอร์ทั้งหมด</div></div>
-          <div class="stat-card"><div class="num" id="ordStatSongs">0</div><div class="label">เพลงที่ขายได้</div></div>
-          <div class="stat-card" style="grid-column:span 2;"><div class="num" id="ordStatRevenue">0</div><div class="label">ยอดขายรวม (LAK)</div></div>
+          <div class="stat-card"><div class="num" id="ordStatSongs">0</div><div class="label">เพลงที่ขายได้ (สำเร็จ)</div></div>
+          <div class="stat-card" style="grid-column:span 2;"><div class="num" id="ordStatRevenue">0</div><div class="label">ยอดขายรวม (LAK) — เฉพาะสำเร็จ</div></div>
         </div>
 
         <div style="font-weight:800;margin-bottom:10px;">สร้างออเดอร์ใหม่</div>
@@ -123,6 +139,7 @@
       </div>
 
       <div class="section-title" style="margin-top:22px;">ประวัติออเดอร์</div>
+      <div class="status-filter" id="ordStatusFilter"></div>
       <div id="ordHistoryList" class="container" style="padding:0 16px 24px;"></div>
     </div>
     <!-- ===================== /ORDERS VIEW ===================== -->
