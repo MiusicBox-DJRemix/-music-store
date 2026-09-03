@@ -7,6 +7,7 @@ import {
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initOrdersView } from "./orders.js";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
 let editingSongId = null, editingCatId = null, editingDjId = null, editingPlaylistId = null;
@@ -71,6 +72,7 @@ document.getElementById("qaManageCats").addEventListener("click", () => { showVi
 document.getElementById("qaManageDjs").addEventListener("click", () => { showView("view-djs"); loadDjs(); });
 document.getElementById("qaManagePlaylists").addEventListener("click", () => { showView("view-playlists"); loadPlaylists(); });
 document.getElementById("qaBulkUpload").addEventListener("click", () => { openBulkUpload(); });
+document.getElementById("qaOrders").addEventListener("click", () => { showView("view-orders"); initOrdersView(); });
 document.getElementById("qaSettings").addEventListener("click", () => { showView("view-settings"); loadSettings(); });
 
 async function loadDashboard() {
