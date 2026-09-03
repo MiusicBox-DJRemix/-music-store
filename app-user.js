@@ -351,24 +351,35 @@ function renderPlaylists() {
 function togglePlaylistsVisibility() {
   const wrapper = document.querySelector(".playlist-wrapper");
   if (!wrapper) return;
-  // แสดงเพลย์ลิสต์เมื่ออยู่หน้าแรกที่เลือก "ทั้งหมด" หรือเปิดแท็บเพลย์ลิสต์
-  wrapper.style.display = STATE.currentView === "playlist" || STATE.currentCategory === "all" ? "" : "none";
+  // แสดงเพลย์ลิสต์เฉพาะหน้าแรกที่เลือก "ทั้งหมด" หรือแท็บเพลย์ลิสต์
+  wrapper.style.display =
+    STATE.currentView === "playlist" ||
+    (STATE.currentView === "home" && STATE.currentCategory === "all")
+      ? ""
+      : "none";
 }
 
 function setView(view) {
   STATE.currentView = view;
-  const playlistOnly = view === "playlist";
+  const showCategory = view === "home" || view === "category";
+  const showDj = view === "home" || view === "dj";
+  const showSongs = view === "home" || view === "category";
 
-  // หน้าเพลย์ลิสต์ยังคงแสดงโลโก้ ช่องค้นหา และหมวดหมู่ด้านบนไว้
-  // ซ่อนเฉพาะส่วน DJ และรายการ "เพลงทั้งหมด" ด้านล่างตามแบบในภาพ
-  ["#djSection", "#gridTitle", "#songGrid", "#emptyState"].forEach(selector => {
+  // ช่องค้นหาอยู่ใน topbar จึงยังแสดงทุกแท็บ
+  const categoryChips = document.getElementById("categoryChips");
+  const djSection = document.getElementById("djSection");
+  if (categoryChips) categoryChips.style.display = showCategory ? "" : "none";
+  if (djSection) djSection.style.display = showDj ? "" : "none";
+
+  // แท็บเพลย์ลิสต์และ DJ ซ่อนรายการเพลงทั้งหมด ส่วนหมวดหมู่ยังดูเพลงที่กรองได้
+  ["#gridTitle", "#songGrid", "#emptyState"].forEach(selector => {
     const el = document.querySelector(selector);
-    if (el) el.style.display = playlistOnly ? "none" : "";
+    if (el) el.style.display = showSongs ? "" : "none";
   });
 
   togglePlaylistsVisibility();
 
-  if (playlistOnly) {
+  if (view === "playlist") {
     const container = document.getElementById("playlistsContainer");
     const icon = document.getElementById("dropdownIcon");
     if (container) container.classList.remove("is-closed");
@@ -626,14 +637,20 @@ document.querySelectorAll(".bottom-nav button").forEach(btn => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "category") {
-      setView("home");
-      const catChips = document.getElementById("categoryChips");
-      if (catChips) catChips.scrollIntoView({ behavior: "smooth" });
+      STATE.currentCategory = "all";
+      STATE.currentDj = null;
+      setView("category");
+      renderCategoryChips();
+      renderSongGrid();
+      renderPlaylists();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "dj") {
-      setView("home");
-      const djSection = document.getElementById("djSection");
-      if (djSection) djSection.scrollIntoView({ behavior: "smooth" });
+      STATE.currentCategory = "all";
+      STATE.currentDj = null;
+      setView("dj");
+      renderDjRow();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (tab === "contact") {
       window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, "สวัสดีครับ/ค่ะ ต้องการสอบถามเกี่ยวกับร้านเพลง"), "_blank");
