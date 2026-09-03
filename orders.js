@@ -21,6 +21,10 @@ function escapeHtml(str) {
 }
 function formatLAK(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
+// ชื่อฟิลด์จริงใน Firestore คือ playlist_name แต่รองรับข้อมูลเก่าที่อาจใช้ name ด้วย
+function getPlaylistName(playlist) {
+  return String(playlist?.playlist_name ?? playlist?.name ?? "");
+}
 
 const state = {
   songs: [],        // เพลงทั้งหมด (status: active) จาก collection "songs"
@@ -34,7 +38,7 @@ const state = {
   // ---- ประเภทออเดอร์ที่กำลังกรอก: "single" (เพลงเดี่ยว) หรือ "playlist" (ยกเพลย์ลิสต์) ----
   orderType: "single",
   playlistSearchResults: [],
-  selectedPlaylist: null, // { id, name, price, ... } เพลย์ลิสต์ที่เลือกในฟอร์มสร้างออเดอร์ใหม่
+  selectedPlaylist: null, // { id, playlist_name, price, ... } เพลย์ลิสต์ที่เลือกในฟอร์มสร้างออเดอร์ใหม่
 
   // ---- สถานะสำหรับโหมดแก้ไขออเดอร์ (modal) ----
   editingOrderId: null,   // id ของออเดอร์ที่กำลังแก้ไขอยู่ (null = ไม่ได้เปิด modal)
@@ -83,7 +87,7 @@ function getSongsInPlaylist(playlistId) {
 
 /* ---------------- คำนวณ ---------------- */
 function calculateCartTotal(items) {
-  return items.reduce((sum, item) => sum + item.price, 0);
+  return items.reduce((sum, item) => sum + Number(item.price || 0), 0);
 }
 function calculateStats(orders) {
   // totalOrders = ออเดอร์ทั้งหมดทุกสถานะ (ปริมาณงานรวม)
@@ -92,7 +96,7 @@ function calculateStats(orders) {
   const totalOrders = orders.length;
   const completed = orders.filter((o) => o.status === "completed");
   const totalSongsSold = completed.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0);
-  const totalRevenue = completed.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalRevenue = completed.reduce((sum, o) => sum + Number(o.total || 0), 0);
   // แยกนับว่าออเดอร์ที่สำเร็จแล้วเป็นแบบ "เพลงเดี่ยว" หรือ "ยกเพลย์ลิสต์" กี่ออเดอร์
   // ออเดอร์เก่าที่ไม่มีฟิลด์ order_type (สร้างก่อนอัปเดตนี้) ให้นับเป็นเพลงเดี่ยวไว้ก่อน
   const singleCount = completed.filter((o) => (o.order_type || "single") === "single").length;
@@ -144,7 +148,7 @@ function renderCart() {
   if (state.orderType === "playlist" && state.selectedPlaylist) {
     const badge = document.createElement("div");
     badge.style.cssText = "font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;";
-    badge.textContent = `🎶 ยกเพลย์ลิสต์: ${state.selectedPlaylist.name} (${state.cartItems.length} เพลง)`;
+    badge.textContent = `🎶 ยกเพลย์ลิสต์: ${getPlaylistName(state.selectedPlaylist)} (${state.cartItems.length} เพลง)`;
     container.appendChild(badge);
   }
 
@@ -203,7 +207,7 @@ function renderPlaylistSearchResults() {
     card.innerHTML = `
       <img src="${pl.cover_url || ""}">
       <div class="info" style="flex:1;">
-        <div class="n1">${escapeHtml(pl.name)}</div>
+        <div class="n1">${escapeHtml(getPlaylistName(pl))}</div>
         <div class="n2">${songCount} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
       </div>
     `;
@@ -224,7 +228,7 @@ function renderPlaylistSelected() {
   card.className = "playlist-selected-card";
   card.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:800;">🎶 ${escapeHtml(pl.name)}</div>
+      <div style="font-weight:800;">🎶 ${escapeHtml(getPlaylistName(pl))}</div>
       <button class="icon-btn" id="ordPlaylistClearBtn">✕</button>
     </div>
     <div style="font-size:12px;color:var(--text-dim);">${state.cartItems.length} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
@@ -261,7 +265,7 @@ function clearSelectedPlaylist() {
 
 function handlePlaylistSearchInput(e) {
   const q = e.target.value.trim().toLowerCase();
-  state.playlistSearchResults = !q ? [] : state.playlists.filter((p) => (p.name || "").toLowerCase().includes(q));
+  state.playlistSearchResults = !q ? [] : state.playlists.filter((p) => getPlaylistName(p).toLowerCase().includes(q));
   renderPlaylistSearchResults();
 }
 
@@ -473,7 +477,7 @@ function renderEditCart() {
   if (state.editOrderType === "playlist" && state.editSelectedPlaylist) {
     const badge = document.createElement("div");
     badge.style.cssText = "font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;";
-    badge.textContent = `🎶 ยกเพลย์ลิสต์: ${state.editSelectedPlaylist.name} (${state.editCartItems.length} เพลง)`;
+    badge.textContent = `🎶 ยกเพลย์ลิสต์: ${getPlaylistName(state.editSelectedPlaylist)} (${state.editCartItems.length} เพลง)`;
     container.appendChild(badge);
   }
 
@@ -558,7 +562,7 @@ function renderEditPlaylistSearchResults() {
     card.innerHTML = `
       <img src="${pl.cover_url || ""}">
       <div class="info" style="flex:1;">
-        <div class="n1">${escapeHtml(pl.name)}</div>
+        <div class="n1">${escapeHtml(getPlaylistName(pl))}</div>
         <div class="n2">${songCount} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
       </div>
     `;
@@ -578,7 +582,7 @@ function renderEditPlaylistSelected() {
   card.className = "playlist-selected-card";
   card.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:800;">🎶 ${escapeHtml(pl.name)}</div>
+      <div style="font-weight:800;">🎶 ${escapeHtml(getPlaylistName(pl))}</div>
       <button class="icon-btn" id="eOrdPlaylistClearBtn">✕</button>
     </div>
     <div style="font-size:12px;color:var(--text-dim);">${state.editCartItems.length} เพลง · ราคาเหมา ${formatLAK(pl.price)}</div>
@@ -614,7 +618,7 @@ function clearEditSelectedPlaylist() {
 
 function handleEditPlaylistSearchInput(e) {
   const q = e.target.value.trim().toLowerCase();
-  state.editPlaylistSearchResults = !q ? [] : state.playlists.filter((p) => (p.name || "").toLowerCase().includes(q));
+  state.editPlaylistSearchResults = !q ? [] : state.playlists.filter((p) => getPlaylistName(p).toLowerCase().includes(q));
   renderEditPlaylistSearchResults();
 }
 
@@ -659,7 +663,7 @@ function openEditOrderModal(orderId) {
   const orderType = order.order_type === "playlist" ? "playlist" : "single";
   state.editOrderType = orderType;
   state.editSelectedPlaylist = orderType === "playlist" && order.playlist_id
-    ? (state.playlists.find((p) => p.id === order.playlist_id) || { id: order.playlist_id, name: order.playlist_name || "เพลย์ลิสต์", price: order.total })
+    ? (state.playlists.find((p) => p.id === order.playlist_id) || { id: order.playlist_id, playlist_name: order.playlist_name || "เพลย์ลิสต์", price: order.total })
     : null;
 
   document.querySelectorAll('#eOrdTypeToggle [data-edit-order-type]').forEach((btn) => {
@@ -751,7 +755,7 @@ async function handleUpdateOrder() {
     total: total, // ใช้ยอดรวมตามที่กรอกในฟอร์ม (คำนวณอัตโนมัติ หรือแก้ไขเองก็ได้)
     order_type: state.editOrderType, // "single" | "playlist"
     playlist_id: state.editOrderType === "playlist" && state.editSelectedPlaylist ? state.editSelectedPlaylist.id : null,
-    playlist_name: state.editOrderType === "playlist" && state.editSelectedPlaylist ? state.editSelectedPlaylist.name : null,
+    playlist_name: state.editOrderType === "playlist" && state.editSelectedPlaylist ? getPlaylistName(state.editSelectedPlaylist) : null,
     updated_at: new Date().toISOString(),
   };
 
@@ -846,7 +850,7 @@ async function handleSubmitOrder() {
     total: total, // ใช้ยอดรวมตามที่กรอกในฟอร์ม (คำนวณอัตโนมัติ หรือแก้ไขเองก็ได้)
     order_type: state.orderType, // "single" | "playlist" — ใช้แยกสถิติใน Dashboard
     playlist_id: state.orderType === "playlist" && state.selectedPlaylist ? state.selectedPlaylist.id : null,
-    playlist_name: state.orderType === "playlist" && state.selectedPlaylist ? state.selectedPlaylist.name : null,
+    playlist_name: state.orderType === "playlist" && state.selectedPlaylist ? getPlaylistName(state.selectedPlaylist) : null,
     status: "pending_verify",
     created_at: new Date().toISOString(),
   };
