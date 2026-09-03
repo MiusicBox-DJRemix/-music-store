@@ -96,6 +96,9 @@ function renderCategoryChips() {
     el.addEventListener("click", () => {
       STATE.currentCategory = el.getAttribute("data-cat");
       STATE.currentDj = null;
+      // หน้า "ทั้งหมด" แสดงส่วน DJ เหมือนเดิม แต่หน้าหมวดหมู่
+      // ต้องซ่อนส่วน DJ เพื่อให้เห็นเฉพาะเพลงของหมวดที่เลือก
+      setView(STATE.currentView);
       renderCategoryChips();
       renderSongGrid();
       // เมื่อเลือกหมวดหมู่ ให้แสดงเฉพาะรายการเพลงของหมวดนั้น
@@ -135,6 +138,26 @@ function normalizeCategoryValue(value) {
   return String(value == null ? "" : value).trim().toLowerCase();
 }
 
+function getCategoryValues(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.flatMap(getCategoryValues);
+
+  // รองรับกรณีที่เก็บหมวดหมู่เป็น object หรือ DocumentReference
+  if (typeof value === "object") {
+    return [
+      value.id,
+      value.category_id,
+      value.categoryId,
+      value.category_name,
+      value.categoryName,
+      value.name
+    ].flatMap(getCategoryValues);
+  }
+
+  const normalized = normalizeCategoryValue(value);
+  return normalized ? [normalized] : [];
+}
+
 function songBelongsToCurrentCategory(song) {
   if (STATE.currentCategory === "all") return true;
 
@@ -144,16 +167,20 @@ function songBelongsToCurrentCategory(song) {
     category && category.id,
     category && category.category_name,
     category && category.name
-  ].map(normalizeCategoryValue).filter(Boolean);
+  ].flatMap(getCategoryValues);
 
-  // รองรับทั้งข้อมูลที่บันทึกเป็น category_id และข้อมูลเก่าที่บันทึกเป็นชื่อหมวดหมู่
+  // รองรับทั้งข้อมูลใหม่/เก่าที่บันทึกเป็น id, ชื่อหมวดหมู่,
+  // array ของหมวดหมู่ หรือ object ของหมวดหมู่
   const songValues = [
     song.category_id,
     song.categoryId,
+    song.category_ids,
+    song.categoryIds,
     song.category,
     song.category_name,
-    song.categoryName
-  ].map(normalizeCategoryValue).filter(Boolean);
+    song.categoryName,
+    song.categories
+  ].flatMap(getCategoryValues);
 
   return songValues.some(value => selectedValues.includes(value));
 }
@@ -364,7 +391,11 @@ function togglePlaylistsVisibility() {
 function setView(view) {
   STATE.currentView = view;
   const showCategory = view === "home" || view === "category";
-  const showDj = view === "home" || view === "dj";
+  // แสดง DJ ในหน้า "ทั้งหมด" หรือหน้า DJ เท่านั้น
+  // เมื่อเลือกหมวดหมู่เฉพาะ ให้ซ่อนส่วน DJ ออกจากหน้านั้น
+  const showDj =
+    view === "dj" ||
+    ((view === "home" || view === "category") && STATE.currentCategory === "all");
   // แท็บ DJ ต้องแสดงเพลงของ DJ ทุกคน หรือเพลงของ DJ ที่เลือก
   const showSongs = view === "home" || view === "category" || view === "dj";
 
