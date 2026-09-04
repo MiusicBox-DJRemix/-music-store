@@ -96,6 +96,10 @@ async function loadDashboard() {
 }
 
 // ================= SONGS =================
+let songSelectMode = false;
+const selectedSongIds = new Set();
+let currentSongListView = [];
+
 async function loadSongs() {
   const [songsSnap, catSnap, djSnap, playlistSnap] = await Promise.all([
     getDocs(collection(db, "songs")), getDocs(collection(db, "categories")), getDocs(collection(db, "djs")), getDocs(collection(db, "playlists"))
@@ -107,6 +111,8 @@ async function loadSongs() {
   populateSelect("fCategory", CACHE.categories, "id", "category_name");
   populateSelect("fDj", CACHE.djs, "id", "dj_name");
   populateSelect("fPlaylist", CACHE.playlists, "id", "playlist_name");
+  selectedSongIds.clear();
+  updateSongBulkBar();
   renderSongList(CACHE.songs);
 }
 function populateSelect(id, items, valueKey, labelKey) {
@@ -116,10 +122,12 @@ function populateSelect(id, items, valueKey, labelKey) {
   sel.value = current;
 }
 function renderSongList(list) {
+  currentSongListView = list;
   const wrap = document.getElementById("songList");
   if (list.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มีเพลง</div>'; return; }
   wrap.innerHTML = list.map(s => `
     <div class="list-row">
+      ${songSelectMode ? `<input type="checkbox" class="song-select-chk" data-id="${s.id}" ${selectedSongIds.has(s.id) ? "checked" : ""} style="width:20px;height:20px;flex-shrink:0;">` : ""}
       <img src="${s.cover_url || ""}">
       <div class="info"><div class="n1">${escapeHtml(s.song_name)}</div>
       <div class="n2">${escapeHtml(s.dj_name || "-")} · ${escapeHtml(s.category_name || "-")} · ${formatPrice(s.price)}</div></div>
@@ -130,7 +138,60 @@ function renderSongList(list) {
     </div>`).join("");
   wrap.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => openEditSong(b.getAttribute("data-edit"))));
   wrap.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => confirmDeleteSong(b.getAttribute("data-del"))));
+  wrap.querySelectorAll(".song-select-chk").forEach(chk => chk.addEventListener("change", () => {
+    const id = chk.getAttribute("data-id");
+    if (chk.checked) selectedSongIds.add(id); else selectedSongIds.delete(id);
+    updateSongBulkBar();
+  }));
 }
+
+function updateSongBulkBar() {
+  document.getElementById("songSelectedCount").textContent = `เลือกแล้ว ${selectedSongIds.size} เพลง`;
+  document.getElementById("songBulkDeleteBtn").disabled = selectedSongIds.size === 0;
+  const allSelected = currentSongListView.length > 0 && currentSongListView.every(s => selectedSongIds.has(s.id));
+  document.getElementById("songSelectAllChk").checked = allSelected;
+}
+
+document.getElementById("songSelectModeBtn").addEventListener("click", () => {
+  songSelectMode = !songSelectMode;
+  selectedSongIds.clear();
+  document.getElementById("songBulkBar").style.display = songSelectMode ? "flex" : "none";
+  document.getElementById("songSelectModeBtn").style.background = songSelectMode ? "var(--accent)" : "";
+  document.getElementById("songSelectModeBtn").style.color = songSelectMode ? "#fff" : "";
+  updateSongBulkBar();
+  renderSongList(currentSongListView);
+});
+document.getElementById("songSelectAllChk").addEventListener("change", (e) => {
+  if (e.target.checked) currentSongListView.forEach(s => selectedSongIds.add(s.id));
+  else selectedSongIds.clear();
+  updateSongBulkBar();
+  renderSongList(currentSongListView);
+});
+document.getElementById("songBulkDeleteBtn").addEventListener("click", () => {
+  const ids = Array.from(selectedSongIds);
+  if (ids.length === 0) return;
+  openConfirm(`ต้องการลบเพลงที่เลือกไว้ ${ids.length} เพลงหรือไม่? (เพลงที่มี Order เก่าอยู่แล้วจะถูกปิดการขายแทนการลบ เพื่อไม่ให้ไฟล์เต็มหาย)`, async () => {
+    let deletedCount = 0, hiddenCount = 0;
+    for (const id of ids) {
+      const hasOrders = await songHasOrders(id);
+      if (hasOrders) {
+        await updateDoc(doc(db, "songs", id), { status: "hidden", updated_at: new Date().toISOString() });
+        hiddenCount++;
+      } else {
+        await deleteDoc(doc(db, "songs", id));
+        deletedCount++;
+      }
+    }
+    selectedSongIds.clear();
+    songSelectMode = false;
+    document.getElementById("songBulkBar").style.display = "none";
+    document.getElementById("songSelectModeBtn").style.background = "";
+    document.getElementById("songSelectModeBtn").style.color = "";
+    showToast(`ลบแล้ว ${deletedCount} เพลง${hiddenCount > 0 ? ` · ปิดการขาย ${hiddenCount} เพลง (มี Order เก่า)` : ""}`, "success");
+    loadSongs();
+    loadDashboard();
+  });
+});
 
 // ฟังก์ชันกรองและแสดงผลรายการเพลง
 const handleSongSearch = (e) => {
@@ -593,7 +654,6 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
 
   const plSel = document.getElementById("bulkPlaylist");
   const newPlaylistName = document.getElementById("bulkNewPlaylistName").value.trim();
-  if (!plSel.value && !newPlaylistName) { showToast("กรุณาเลือกเพลย์ลิสต์ หรือตั้งชื่อเพลย์ลิสต์ใหม่", "error"); return; }
 
   btn.disabled = true; btn.textContent = "กำลังอัปโหลด...";
   document.getElementById("bulkProgressWrap").style.display = "block";
@@ -611,7 +671,7 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
     if (pendingBulkCoverFile) {
       const coverRes = await uploadToCloudinary(pendingBulkCoverFile);
       sharedCoverUrl = coverRes.url;
-      await updateDoc(doc(db, "playlists", playlistId), { cover_url: sharedCoverUrl }).catch(() => {});
+      if (playlistId) await updateDoc(doc(db, "playlists", playlistId), { cover_url: sharedCoverUrl }).catch(() => {});
     }
 
     const djSel = document.getElementById("bulkDj");
@@ -667,8 +727,9 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
     const unmatchedNote = matchedCount < bulkFiles.length && bulkFullFiles.length > 0
       ? ` (มีไฟล์เต็ม ${matchedCount}/${bulkFiles.length} เพลง — ที่เหลือเพิ่มทีหลังได้ที่หน้าแก้ไขเพลง)`
       : "";
+    const destinationNote = playlistName ? ` เข้าเพลย์ลิสต์ "${playlistName}"` : "";
     document.getElementById("bulkStatusText").textContent = `เสร็จแล้ว! เพิ่มเพลงสำเร็จ ${bulkFiles.length} เพลง${unmatchedNote}`;
-    showToast(`เพิ่มเพลง ${bulkFiles.length} เพลงเข้าเพลย์ลิสต์ "${playlistName}" สำเร็จ${unmatchedNote}`, "success");
+    showToast(`เพิ่มเพลง ${bulkFiles.length} เพลง${destinationNote} สำเร็จ${unmatchedNote}`, "success");
     loadDashboard();
     setTimeout(() => { document.getElementById("bulkUploadBackdrop").classList.remove("show"); }, 1200);
   } catch (err) {
