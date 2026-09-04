@@ -32,6 +32,9 @@ function toCloudinaryDownloadUrl(url) {
 }
 function formatLAK(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
+// แอดมินย่อยทำได้ทุกอย่างในหน้าออเดอร์ตามปกติ ยกเว้นลบประวัติออเดอร์ (สงวนไว้ให้แอดมินหลักเท่านั้น)
+// role ถูกตั้งค่าไว้ที่ window.__currentAdminRole โดย app-admin.js ตอนล็อกอินสำเร็จ
+function isMainAdmin() { return window.__currentAdminRole === "main"; }
 // ชื่อฟิลด์จริงใน Firestore คือ playlist_name แต่รองรับข้อมูลเก่าที่อาจใช้ name ด้วย
 function getPlaylistName(playlist) {
   return String(playlist?.playlist_name ?? playlist?.name ?? "");
@@ -438,7 +441,7 @@ function renderHistory() {
           <button class="icon-btn" data-receipt-order="${o.id}" title="ดูใบเสร็จ">🧾</button>
           ${(o.status === "processing" || o.status === "completed") ? `<button class="icon-btn" data-fullfiles-order="${o.id}" title="ไฟล์เต็มสำหรับส่งลูกค้า">📥</button>` : ""}
           <button class="icon-btn" data-edit-order="${o.id}" title="แก้ไขออเดอร์">✏️</button>
-          <button class="icon-btn danger" data-delete-order="${o.id}" title="ลบออเดอร์">🗑</button>
+          ${isMainAdmin() ? `<button class="icon-btn danger" data-delete-order="${o.id}" title="ลบออเดอร์">🗑</button>` : ""}
         </div>
       </div>
     `;
@@ -613,6 +616,11 @@ function askConfirm(message) {
 
 /* ---------------- ลบออเดอร์ ---------------- */
 async function handleDeleteOrder(orderId) {
+  if (!isMainAdmin()) {
+    if (window.__showToast) window.__showToast("เฉพาะแอดมินหลักเท่านั้นที่ลบประวัติออเดอร์ได้", "error");
+    else alert("เฉพาะแอดมินหลักเท่านั้นที่ลบประวัติออเดอร์ได้");
+    return;
+  }
   const order = state.allOrders.find((o) => o.id === orderId);
   const label = order ? `ออเดอร์ของ ${order.customer_name} (${formatLAK(order.total)})` : "ออเดอร์นี้";
   const ok = await askConfirm(`ต้องการลบ${label}ใช่หรือไม่? การลบไม่สามารถย้อนกลับได้`);
