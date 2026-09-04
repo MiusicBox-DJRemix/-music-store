@@ -137,6 +137,25 @@ function ensureReceiptElements() {
   `;
   document.body.appendChild(backdrop);
 }
+// รองรับหน้า admin.html รุ่นเก่าที่ยังไม่มี modal ไฟล์เพลงเต็ม
+function ensureFullFilesElements() {
+  if (document.getElementById("fullFilesBackdrop")) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.id = "fullFilesBackdrop";
+  backdrop.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h3>ไฟล์เพลงเต็มสำหรับส่งลูกค้า</h3>
+        <button class="modal-close" id="fullFilesClose">✕</button>
+      </div>
+      <p style="color:var(--text-dim);font-size:13px;margin-top:0;">ดาวน์โหลดแล้วส่งให้ลูกค้าทาง WhatsApp ด้วยตัวเอง — ลิงก์นี้สำหรับ Admin เท่านั้น ห้ามส่งลิงก์นี้ตรงให้ลูกค้า</p>
+      <div id="fullFilesContent"></div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+}
 function calculateStats(orders) {
   // totalOrders = ออเดอร์ทั้งหมดทุกสถานะ (ปริมาณงานรวม)
   // totalSongsSold / totalRevenue = นับเฉพาะออเดอร์ที่ "สำเร็จ" แล้วเท่านั้น
@@ -406,6 +425,7 @@ function renderHistory() {
         <select class="status-select" data-order-id="${o.id}">${options}</select>
         <div class="row-actions" style="justify-content:flex-end;">
           <button class="icon-btn" data-receipt-order="${o.id}" title="ดูใบเสร็จ">🧾</button>
+          ${(o.status === "processing" || o.status === "completed") ? `<button class="icon-btn" data-fullfiles-order="${o.id}" title="ไฟล์เต็มสำหรับส่งลูกค้า">📥</button>` : ""}
           <button class="icon-btn" data-edit-order="${o.id}" title="แก้ไขออเดอร์">✏️</button>
           <button class="icon-btn danger" data-delete-order="${o.id}" title="ลบออเดอร์">🗑</button>
         </div>
@@ -418,6 +438,9 @@ function renderHistory() {
   });
   wrap.querySelectorAll("[data-receipt-order]").forEach((btn) => {
     btn.addEventListener("click", () => openReceipt(btn.getAttribute("data-receipt-order")));
+  });
+  wrap.querySelectorAll("[data-fullfiles-order]").forEach((btn) => {
+    btn.addEventListener("click", () => openFullFilesModal(btn.getAttribute("data-fullfiles-order")));
   });
   wrap.querySelectorAll("[data-edit-order]").forEach((btn) => {
     btn.addEventListener("click", () => openEditOrderModal(btn.getAttribute("data-edit-order")));
@@ -489,6 +512,50 @@ function openReceipt(orderId) {
 
 function closeReceipt() {
   const backdrop = document.getElementById("receiptBackdrop");
+  backdrop.classList.remove("open");
+  backdrop.style.display = "none";
+}
+
+/* ---------------- ไฟล์เพลงเต็ม WAV สำหรับ Admin ส่งลูกค้า (หลังชำระเงินแล้วเท่านั้น) ---------------- */
+async function openFullFilesModal(orderId) {
+  const order = state.allOrders.find((o) => o.id === orderId);
+  const content = document.getElementById("fullFilesContent");
+  const backdrop = document.getElementById("fullFilesBackdrop");
+  if (!order || !content || !backdrop) return;
+
+  if (order.status !== "processing" && order.status !== "completed") {
+    alert("ออเดอร์นี้ยังไม่ได้ยืนยันการชำระเงิน");
+    return;
+  }
+
+  content.innerHTML = `<div class="empty-state">กำลังโหลดไฟล์...</div>`;
+  backdrop.classList.add("open");
+  backdrop.style.display = "flex";
+
+  // ดึงข้อมูลเพลงล่าสุดจาก Firestore ตรงๆ (ไม่ใช้ cache) เพราะเพลงอาจถูกปิดการขาย/แก้ไขไปแล้วหลังสั่งซื้อ
+  const items = order.items || [];
+  const rows = await Promise.all(items.map(async (item) => {
+    try {
+      const snap = await getDoc(doc(db, "songs", item.song_id));
+      const song = snap.exists() ? snap.data() : null;
+      if (!song || !song.full_file_url) {
+        return `<div class="receipt-line"><div><strong>${escapeHtml(item.title || "เพลง")}</strong><small>ยังไม่ได้อัปโหลดไฟล์เต็ม WAV</small></div></div>`;
+      }
+      return `
+        <div class="receipt-line">
+          <div><strong>${escapeHtml(item.title || song.song_name || "เพลง")}</strong><small>${escapeHtml(song.full_file_name || "full.wav")}</small></div>
+          <a class="btn secondary" style="padding:8px 14px;font-size:13px;" href="${song.full_file_url}" target="_blank" rel="noopener">ดาวน์โหลด</a>
+        </div>`;
+    } catch (err) {
+      return `<div class="receipt-line"><div><strong>${escapeHtml(item.title || "เพลง")}</strong><small>โหลดข้อมูลไม่สำเร็จ</small></div></div>`;
+    }
+  }));
+
+  content.innerHTML = rows.join("") || `<div class="empty-state">ไม่มีรายการเพลงในออเดอร์นี้</div>`;
+}
+
+function closeFullFilesModal() {
+  const backdrop = document.getElementById("fullFilesBackdrop");
   backdrop.classList.remove("open");
   backdrop.style.display = "none";
 }
@@ -1012,6 +1079,7 @@ async function handleSubmitOrder() {
 export async function initOrdersView() {
   const loadingEl = document.getElementById("ordSongsLoading");
   ensureReceiptElements();
+  ensureFullFilesElements();
   loadingEl.style.display = "block";
   loadingEl.textContent = "กำลังโหลดรายชื่อเพลง...";
 
@@ -1059,6 +1127,11 @@ export async function initOrdersView() {
     document.getElementById("receiptPrintBtn").addEventListener("click", () => window.print());
     document.getElementById("receiptBackdrop").addEventListener("click", (e) => {
       if (e.target.id === "receiptBackdrop") closeReceipt();
+    });
+
+    document.getElementById("fullFilesClose").addEventListener("click", closeFullFilesModal);
+    document.getElementById("fullFilesBackdrop").addEventListener("click", (e) => {
+      if (e.target.id === "fullFilesBackdrop") closeFullFilesModal();
     });
 
     state.listenersBound = true;
