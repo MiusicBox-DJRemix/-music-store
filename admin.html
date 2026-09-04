@@ -239,6 +239,13 @@
         <label class="file-picker" id="coverFilePicker" for="coverFileInput">🖼️ แตะเพื่อเลือกรูปปก</label>
         <input type="file" id="coverFileInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
       </div>
+      <div class="field">
+        <label>ไฟล์เพลงเต็ม WAV (ส่งลูกค้าหลังชำระเงิน — ไม่แสดงบนเว็บ user)</label>
+        <label class="file-picker" id="fullSongFilePicker" for="fullSongFileInput">🔒 แตะเพื่อเลือกไฟล์ WAV เต็ม</label>
+        <input type="file" id="fullSongFileInput" accept=".wav,audio/wav,audio/x-wav" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+        <div id="fullSongFileMeta" style="font-size:12px;color:var(--text-dim);margin-top:4px;display:none;"></div>
+        <div class="progress-outer" id="fullSongUploadProgressWrap" style="display:none;"><div class="progress-inner" id="fullSongUploadProgress"></div></div>
+      </div>
       <div class="field"><label>ชื่อเพลง *</label><input id="fSongName"></div>
       <div class="field"><label>ศิลปิน</label><input id="fArtist"></div>
       <div class="field"><label>DJ</label><select id="fDj"><option value="">— ไม่ระบุ —</option></select></div>
@@ -379,6 +386,17 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="fullFilesBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>ไฟล์เพลงเต็มสำหรับส่งลูกค้า</h3>
+        <button class="modal-close" id="fullFilesClose">✕</button>
+      </div>
+      <p style="color:var(--text-dim);font-size:13px;margin-top:0;">ดาวน์โหลดแล้วส่งให้ลูกค้าทาง WhatsApp ด้วยตัวเอง — ลิงก์นี้สำหรับ Admin เท่านั้น ห้ามส่งลิงก์นี้ตรงให้ลูกค้า</p>
+      <div id="fullFilesContent"></div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="confirmBackdrop">
     <div class="modal">
       <div class="modal-header"><h3>ยืนยันการลบ</h3></div>
@@ -392,6 +410,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module" src="app-admin.js?v=20260903-receipt"></script>
+  <script type="module" src="app-admin.js?v=20260904-fullwav"></script>
 </body>
 </html>
