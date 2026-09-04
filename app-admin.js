@@ -54,19 +54,32 @@ onAuthStateChanged(auth, (user) => {
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = document.getElementById("loginEmail").value.trim();
   const password = document.getElementById("loginPassword").value;
+  const btn = document.getElementById("loginBtn");
   document.getElementById("loginError").textContent = "";
+  btn.disabled = true; btn.textContent = "กำลังเข้าสู่ระบบ...";
   try {
     await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged จะเรียก showAdmin() ต่อเอง (รวมถึงเช็คสิทธิ์แอดมิน) — รอสักครู่แล้วคืนปุ่มกลับ
   } catch (err) {
     document.getElementById("loginError").textContent = "เข้าสู่ระบบไม่สำเร็จ: อีเมลหรือรหัสผ่านไม่ถูกต้อง";
   }
+  btn.disabled = false; btn.textContent = "เข้าสู่ระบบ";
 });
 document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
 
 function showLogin() { document.getElementById("loginScreen").style.display = "flex"; document.getElementById("adminShell").style.display = "none"; }
 async function showAdmin() {
   // ตรวจสอบสิทธิ์แอดมินของบัญชีนี้ก่อนปล่อยเข้าใช้งาน (บูตสแตรปแอดมินหลักคนแรกอัตโนมัติถ้ายังไม่เคยตั้งค่าระบบแอดมินเลย)
-  const roleInfo = await resolveCurrentAdminRole(auth.currentUser);
+  let roleInfo;
+  try {
+    roleInfo = await resolveCurrentAdminRole(auth.currentUser);
+  } catch (err) {
+    // ส่วนใหญ่เกิดจาก Firestore Security Rules ยังไม่อนุญาตให้อ่าน/เขียน collection "admins"
+    document.getElementById("loginError").textContent =
+      "ตรวจสอบสิทธิ์แอดมินไม่สำเร็จ: " + (err.message || err) + " — ถ้าเพิ่งเพิ่มระบบจัดการแอดมิน ให้ตรวจสอบ Firestore Rules ว่าอนุญาต collection \"admins\" แล้วหรือยัง";
+    await signOut(auth);
+    return;
+  }
   if (!roleInfo) {
     document.getElementById("loginError").textContent = "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานระบบ Admin กรุณาติดต่อแอดมินหลักเพื่อเพิ่มบัญชีให้ก่อน";
     await signOut(auth);
