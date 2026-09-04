@@ -1,19 +1,29 @@
 // app-admin.js — หน้า Admin: Login (Firebase Auth) + CRUD (Firestore) + อัปโหลดไฟล์ (Cloudinary)
 // ===================================================
 import { db, auth, uploadToCloudinary } from "./firebase-init.js";
+import { uploadFullSong } from "./storage-adapter.js";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initOrdersView } from "./orders.js?v=20260903-receipt";
+import { initOrdersView } from "./orders.js?v=20260904-fullwav";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
 let editingSongId = null, editingCatId = null, editingDjId = null, editingPlaylistId = null;
 let pendingSongFile = null, pendingCoverFile = null, pendingDjImageFile = null, existingDjImageUrl = "";
 let pendingPlaylistCoverFile = null, existingPlaylistCoverUrl = "";
+let pendingFullSongFile = null, existingFullFileUrl = "";
 let confirmAction = null;
+
+// จำกัดขนาดไฟล์ WAV สูงสุด (ปรับได้ตามแผน Cloudinary — ฟรีแพลนอัปโหลดสูงสุดไฟล์ละ 100MB)
+const MAX_FULL_WAV_SIZE_MB = 100;
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return "";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
 
 function showToast(message, type) {
   const el = document.getElementById("toast");
@@ -140,6 +150,7 @@ searchInputEl.addEventListener("keydown", (e) => {
 
 function resetSongForm() {
   editingSongId = null; pendingSongFile = null; pendingCoverFile = null;
+  pendingFullSongFile = null; existingFullFileUrl = "";
   document.getElementById("songFormTitle").textContent = "เพิ่มเพลง";
   ["fSongName", "fArtist", "fPrice", "fDesc"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("fDj").value = ""; document.getElementById("fCategory").value = ""; document.getElementById("fStatus").value = "active";
@@ -149,6 +160,12 @@ function resetSongForm() {
   document.getElementById("songFilePicker").className = "file-picker";
   document.getElementById("coverFilePicker").textContent = "🖼️ แตะเพื่อเลือกรูปปก";
   document.getElementById("coverFilePicker").className = "file-picker";
+  document.getElementById("fullSongFileInput").value = "";
+  document.getElementById("fullSongFilePicker").textContent = "🔒 แตะเพื่อเลือกไฟล์ WAV เต็ม";
+  document.getElementById("fullSongFilePicker").className = "file-picker";
+  document.getElementById("fullSongFileMeta").style.display = "none";
+  document.getElementById("fullSongFileMeta").textContent = "";
+  document.getElementById("fullSongUploadProgressWrap").style.display = "none";
   document.getElementById("songUploadProgressWrap").style.display = "none";
 }
 function openAddSong() { resetSongForm(); document.getElementById("songFormBackdrop").classList.add("show"); }
@@ -169,6 +186,11 @@ function openEditSong(id) {
   document.getElementById("fPlaylist").value = s.playlist_id || "";
   if (s.file_url) { document.getElementById("songFilePicker").textContent = "✔ มีไฟล์เพลงอยู่แล้ว (ไม่บังคับอัปโหลดใหม่)"; document.getElementById("songFilePicker").className = "file-picker filled"; }
   if (s.cover_url) { document.getElementById("coverFilePicker").textContent = "✔ มีรูปปกอยู่แล้ว"; document.getElementById("coverFilePicker").className = "file-picker filled"; }
+  existingFullFileUrl = s.full_file_url || "";
+  if (existingFullFileUrl) {
+    document.getElementById("fullSongFilePicker").textContent = `🔒✔ มีไฟล์เต็มอยู่แล้ว${s.full_file_name ? " (" + s.full_file_name + ")" : ""} — ไม่บังคับอัปโหลดใหม่`;
+    document.getElementById("fullSongFilePicker").className = "file-picker filled";
+  }
   document.getElementById("songFormBackdrop").classList.add("show");
 }
 document.getElementById("addSongBtn").addEventListener("click", openAddSong);
@@ -192,12 +214,39 @@ document.getElementById("coverFileInput").addEventListener("change", (e) => {
   document.getElementById("coverFilePicker").className = "file-picker filled";
 });
 
+document.getElementById("fullSongFileInput").addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const picker = document.getElementById("fullSongFilePicker");
+  const meta = document.getElementById("fullSongFileMeta");
+  const isWav = /\.wav$/i.test(f.name) || f.type === "audio/wav" || f.type === "audio/x-wav";
+  if (!isWav) {
+    showToast("กรุณาเลือกไฟล์นามสกุล .wav เท่านั้นสำหรับเพลงเต็ม", "error");
+    e.target.value = "";
+    pendingFullSongFile = null;
+    meta.style.display = "none";
+    return;
+  }
+  const sizeMb = f.size / (1024 * 1024);
+  if (sizeMb > MAX_FULL_WAV_SIZE_MB) {
+    showToast(`ไฟล์ใหญ่เกินไป (${sizeMb.toFixed(1)} MB) — จำกัดไม่เกิน ${MAX_FULL_WAV_SIZE_MB} MB`, "error");
+    e.target.value = "";
+    pendingFullSongFile = null;
+    meta.style.display = "none";
+    return;
+  }
+  pendingFullSongFile = f;
+  picker.textContent = "🔒 " + f.name;
+  picker.className = "file-picker filled";
+  meta.textContent = `ขนาดไฟล์: ${formatFileSize(f.size)}`;
+  meta.style.display = "block";
+});
+
 document.getElementById("songSaveBtn").addEventListener("click", async function () {
   const name = document.getElementById("fSongName").value.trim();
   if (!name) { showToast("กรุณากรอกชื่อเพลง", "error"); return; }
   const btn = this; btn.disabled = true; btn.textContent = "กำลังบันทึก...";
   try {
-    let fileUrl = null, coverUrl = null;
+    let fileUrl = null, coverUrl = null, fullFileUrl = null, fullFilePublicId = null, fullFileName = null;
     if (pendingSongFile) {
       document.getElementById("songUploadProgressWrap").style.display = "block";
       const prog = document.getElementById("songUploadProgress");
@@ -207,6 +256,16 @@ document.getElementById("songSaveBtn").addEventListener("click", async function 
     if (pendingCoverFile) {
       const res = await uploadToCloudinary(pendingCoverFile);
       coverUrl = res.url;
+    }
+    if (pendingFullSongFile) {
+      document.getElementById("fullSongUploadProgressWrap").style.display = "block";
+      const prog = document.getElementById("fullSongUploadProgress");
+      btn.textContent = "กำลังอัปโหลดไฟล์เต็ม...";
+      const res = await uploadFullSong(pendingFullSongFile, (pct) => { prog.style.width = pct + "%"; });
+      fullFileUrl = res.url;
+      fullFilePublicId = res.publicId;
+      fullFileName = pendingFullSongFile.name;
+      btn.textContent = "กำลังบันทึก...";
     }
     const djSel = document.getElementById("fDj");
     const catSel = document.getElementById("fCategory");
@@ -226,6 +285,11 @@ document.getElementById("songSaveBtn").addEventListener("click", async function 
     };
     if (fileUrl) payload.file_url = fileUrl;
     if (coverUrl) payload.cover_url = coverUrl;
+    if (fullFileUrl) {
+      payload.full_file_url = fullFileUrl;
+      payload.full_file_public_id = fullFilePublicId;
+      payload.full_file_name = fullFileName;
+    }
 
     if (editingSongId) {
       await updateDoc(doc(db, "songs", editingSongId), payload);
@@ -243,7 +307,26 @@ document.getElementById("songSaveBtn").addEventListener("click", async function 
   btn.disabled = false; btn.textContent = "บันทึกเพลง";
 });
 
-function confirmDeleteSong(id) {
+// เช็คว่าเพลงนี้เคยถูกสั่งซื้อ (มีอยู่ใน Order เก่า) หรือไม่ — ใช้ก่อนลบเพลงจริง
+async function songHasOrders(songId) {
+  const snap = await getDocs(collection(db, "orders"));
+  return snap.docs.some(d => (d.data().items || []).some(item => item.song_id === songId));
+}
+
+async function confirmDeleteSong(id) {
+  const hasOrders = await songHasOrders(id);
+  if (hasOrders) {
+    openConfirm(
+      "เพลงนี้มี Order เก่าอ้างอิงอยู่ — ไม่แนะนำให้ลบเพราะจะทำให้ไฟล์เพลงเต็มหาย ระบบจะเปลี่ยนสถานะเป็น 'ปิดการขาย (hidden)' แทนการลบจริง ต้องการดำเนินการต่อหรือไม่?",
+      async () => {
+        await updateDoc(doc(db, "songs", id), { status: "hidden", updated_at: new Date().toISOString() });
+        showToast("ปิดการขายเพลงนี้แล้ว (ไม่ได้ลบไฟล์)", "success");
+        loadSongs();
+        loadDashboard();
+      }
+    );
+    return;
+  }
   openConfirm("คุณต้องการลบเพลงนี้หรือไม่?", async () => {
     await deleteDoc(doc(db, "songs", id));
     showToast("ลบเพลงแล้ว", "success");
