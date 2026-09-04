@@ -6,7 +6,6 @@ import { db } from "./firebase-init.js";
 import {
   collection, getDocs, getDoc, setDoc, query, orderBy, where, doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import JSZip from "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm";
 import { uploadOrderZip } from "./storage-adapter.js";
 
 /* ---------------- สถานะออเดอร์ (4 สถานะ) ---------------- */
@@ -45,6 +44,15 @@ function getPlaylistName(playlist) {
 // งานสร้าง ZIP ถูกกันซ้ำไว้ในหน้านี้ เพื่อไม่ให้ออเดอร์เดียวกันถูกสร้างหลายไฟล์
 // หาก Admin เปิด/กดซ้ำระหว่างที่กำลังดาวน์โหลด WAV จาก Cloud
 const zipJobs = new Set();
+let jsZipModulePromise = null;
+
+async function loadJSZip() {
+  if (!jsZipModulePromise) {
+    jsZipModulePromise = import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")
+      .then((module) => module.default || module);
+  }
+  return jsZipModulePromise;
+}
 
 function orderToast(message, type = "") {
   if (window.__showToast) window.__showToast(message, type);
@@ -162,6 +170,7 @@ async function createOrderZip(orderId) {
       throw new Error("ออเดอร์นี้ไม่มีรายการเพลงสำหรับสร้าง ZIP");
     }
 
+    const JSZip = await loadJSZip();
     const zip = new JSZip();
     const usedNames = new Set();
     for (let index = 0; index < orderSongs.length; index += 1) {
