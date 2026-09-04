@@ -642,10 +642,20 @@ function cleanFileNameToSongName(fileName) {
   return nameFromFile(fileName);
 }
 
-// จับคู่ไฟล์เต็ม WAV กับไฟล์ตัวอย่าง โดยเทียบชื่อไฟล์แบบไม่สนตัวพิมพ์เล็ก-ใหญ่ และไม่สนนามสกุล
+// ปรับชื่อไฟล์ให้เทียบกันง่ายขึ้น: ตัดนามสกุล, ไม่สนตัวพิมพ์เล็ก-ใหญ่, ไม่สนช่องว่าง/ขีดกลาง/underscore ที่เกินมาหรือขาดไป
+// (กันปัญหาไฟล์ตัวอย่างชื่อ "เพลง A.mp3" กับไฟล์เต็มชื่อ "เพลง_A .wav" ไม่จับคู่กันทั้งที่จริงๆ เป็นเพลงเดียวกัน)
+function normalizeForMatch(fileName) {
+  return nameFromFile(fileName)
+    .trim()
+    .toLowerCase()
+    .replace(/[_\-]+/g, " ")   // underscore/ขีดกลาง ถือเป็นช่องว่าง
+    .replace(/\s+/g, " ");     // ยุบช่องว่างซ้ำให้เหลือช่องเดียว
+}
+
+// จับคู่ไฟล์เต็ม WAV กับไฟล์ตัวอย่าง โดยเทียบชื่อไฟล์แบบยืดหยุ่น (ดู normalizeForMatch)
 function matchFullFile(previewFileName, fullFilesList) {
-  const key = nameFromFile(previewFileName).trim().toLowerCase();
-  return fullFilesList.find(f => nameFromFile(f.name).trim().toLowerCase() === key) || null;
+  const key = normalizeForMatch(previewFileName);
+  return fullFilesList.find(f => normalizeForMatch(f.name) === key) || null;
 }
 
 document.getElementById("bulkUploadBtn").addEventListener("click", async function () {
@@ -682,6 +692,7 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
     const catName = catSel.value ? catSel.options[catSel.selectedIndex].text : "";
 
     let matchedCount = 0;
+    const unmatchedNames = []; // เก็บชื่อเพลงที่มีไฟล์เต็มให้เลือก แต่จับคู่ไม่ได้ — จะได้รู้ทันทีว่าต้องไปแก้ไขเพลงไหนเพิ่ม
     for (let i = 0; i < bulkFiles.length; i++) {
       const file = bulkFiles[i];
       document.getElementById("bulkStatusText").textContent = `กำลังอัปโหลด ${i + 1}/${bulkFiles.length}: ${file.name}`;
@@ -718,20 +729,26 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
         songPayload.full_file_public_id = fullRes.publicId;
         songPayload.full_file_name = matchedFull.name;
         matchedCount++;
+      } else if (bulkFullFiles.length > 0) {
+        unmatchedNames.push(songPayload.song_name);
       }
 
       await addDoc(collection(db, "songs"), songPayload);
     }
 
     document.getElementById("bulkProgress").style.width = "100%";
-    const unmatchedNote = matchedCount < bulkFiles.length && bulkFullFiles.length > 0
-      ? ` (มีไฟล์เต็ม ${matchedCount}/${bulkFiles.length} เพลง — ที่เหลือเพิ่มทีหลังได้ที่หน้าแก้ไขเพลง)`
+    const hasUnmatched = unmatchedNames.length > 0;
+    const unmatchedNote = hasUnmatched
+      ? ` (มีไฟล์เต็ม ${matchedCount}/${bulkFiles.length} เพลง — ยังไม่มีไฟล์เต็ม: ${unmatchedNames.join(", ")} ไปเพิ่มทีหลังได้ที่หน้าแก้ไขเพลง)`
       : "";
     const destinationNote = playlistName ? ` เข้าเพลย์ลิสต์ "${playlistName}"` : "";
     document.getElementById("bulkStatusText").textContent = `เสร็จแล้ว! เพิ่มเพลงสำเร็จ ${bulkFiles.length} เพลง${unmatchedNote}`;
-    showToast(`เพิ่มเพลง ${bulkFiles.length} เพลง${destinationNote} สำเร็จ${unmatchedNote}`, "success");
+    showToast(`เพิ่มเพลง ${bulkFiles.length} เพลง${destinationNote} สำเร็จ${hasUnmatched ? ` — ${unmatchedNames.length} เพลงยังไม่มีไฟล์เต็ม (ดูรายชื่อด้านล่าง)` : ""}`, hasUnmatched ? "error" : "success");
     loadDashboard();
-    setTimeout(() => { document.getElementById("bulkUploadBackdrop").classList.remove("show"); }, 1200);
+    // ถ้ามีเพลงจับคู่ไฟล์เต็มไม่ได้ ให้ค้างหน้าต่างไว้จนกว่าจะปิดเอง จะได้เห็นรายชื่อที่ต้องไปแก้ไขเพิ่ม
+    if (!hasUnmatched) {
+      setTimeout(() => { document.getElementById("bulkUploadBackdrop").classList.remove("show"); }, 1200);
+    }
   } catch (err) {
     showToast("อัปโหลดไม่สำเร็จ: " + err.message, "error");
   }
