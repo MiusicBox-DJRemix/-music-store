@@ -9,8 +9,10 @@ import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { initOrdersView } from "./orders.js?v=20260904-fullwav";
+import { resolveCurrentAdminRole, initAdminsView } from "./admin-roles.js";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
+let currentAdminRole = null; // "main" | "sub" — ของบัญชีที่ล็อกอินอยู่ตอนนี้
 let editingSongId = null, editingCatId = null, editingDjId = null, editingPlaylistId = null;
 let pendingSongFile = null, pendingCoverFile = null, pendingDjImageFile = null, existingDjImageUrl = "";
 let pendingPlaylistCoverFile = null, existingPlaylistCoverUrl = "";
@@ -63,8 +65,19 @@ document.getElementById("logoutBtn").addEventListener("click", () => signOut(aut
 
 function showLogin() { document.getElementById("loginScreen").style.display = "flex"; document.getElementById("adminShell").style.display = "none"; }
 async function showAdmin() {
+  // ตรวจสอบสิทธิ์แอดมินของบัญชีนี้ก่อนปล่อยเข้าใช้งาน (บูตสแตรปแอดมินหลักคนแรกอัตโนมัติถ้ายังไม่เคยตั้งค่าระบบแอดมินเลย)
+  const roleInfo = await resolveCurrentAdminRole(auth.currentUser);
+  if (!roleInfo) {
+    document.getElementById("loginError").textContent = "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานระบบ Admin กรุณาติดต่อแอดมินหลักเพื่อเพิ่มบัญชีให้ก่อน";
+    await signOut(auth);
+    return;
+  }
+  currentAdminRole = roleInfo.role;
+  window.__currentAdminRole = currentAdminRole;
+
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("adminShell").style.display = "block";
+  document.getElementById("qaManageAdmins").style.display = currentAdminRole === "main" ? "" : "none";
   const s = await getDoc(doc(db, "settings", "main"));
   if (s.exists()) document.getElementById("adminSiteName").textContent = s.data().website_name || "Music Store";
   loadDashboard();
@@ -84,6 +97,10 @@ document.getElementById("qaManagePlaylists").addEventListener("click", () => { s
 document.getElementById("qaBulkUpload").addEventListener("click", () => { openBulkUpload(); });
 document.getElementById("qaOrders").addEventListener("click", () => { showView("view-orders"); initOrdersView(); });
 document.getElementById("qaSettings").addEventListener("click", () => { showView("view-settings"); loadSettings(); });
+document.getElementById("qaManageAdmins").addEventListener("click", () => {
+  if (currentAdminRole !== "main") { showToast("เฉพาะแอดมินหลักเท่านั้นที่เข้าหน้านี้ได้", "error"); return; }
+  showView("view-admins"); initAdminsView();
+});
 
 async function loadDashboard() {
   const [songsSnap, catSnap, djSnap, playlistSnap] = await Promise.all([
@@ -794,3 +811,7 @@ document.getElementById("confirmOk").addEventListener("click", async () => {
   document.getElementById("confirmBackdrop").classList.remove("show");
   if (confirmAction) await confirmAction();
 });
+
+// ให้ admin-roles.js เรียกใช้ toast/confirm modal ตัวเดียวกับหน้านี้ได้ (ไม่ต้องสร้างซ้ำ)
+window.__showToast = showToast;
+window.__openConfirm = openConfirm;
