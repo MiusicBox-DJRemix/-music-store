@@ -47,9 +47,28 @@ function nameFromFile(fileName) {
   return String(fileName || "").replace(/\.[^/.]+$/, "").trim();
 }
 
+function withTimeout(promise, milliseconds, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 // ---------------- Auth ----------------
-onAuthStateChanged(auth, (user) => {
-  if (user) showAdmin(); else showLogin();
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    showLogin();
+    return;
+  }
+  try {
+    await showAdmin();
+  } catch (err) {
+    document.getElementById("loginError").textContent =
+      "เปิดหน้า Admin ไม่สำเร็จ: " + (err.message || err) + " — ตรวจสอบอินเทอร์เน็ตและ Firebase Rules";
+    showLogin();
+    await signOut(auth).catch(() => {});
+  }
 });
 
 document.getElementById("loginBtn").addEventListener("click", async () => {
@@ -59,10 +78,17 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   document.getElementById("loginError").textContent = "";
   btn.disabled = true; btn.textContent = "กำลังเข้าสู่ระบบ...";
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await withTimeout(
+      signInWithEmailAndPassword(auth, email, password),
+      15000,
+      "เชื่อมต่อ Firebase นานเกินไป"
+    );
     // onAuthStateChanged จะเรียก showAdmin() ต่อเอง (รวมถึงเช็คสิทธิ์แอดมิน) — รอสักครู่แล้วคืนปุ่มกลับ
   } catch (err) {
-    document.getElementById("loginError").textContent = "เข้าสู่ระบบไม่สำเร็จ: อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+    document.getElementById("loginError").textContent =
+      err?.code === "auth/invalid-credential"
+        ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+        : "เข้าสู่ระบบไม่สำเร็จ: " + (err.message || err);
   }
   btn.disabled = false; btn.textContent = "เข้าสู่ระบบ";
 });
@@ -118,7 +144,11 @@ async function showAdmin() {
   // ตรวจสอบสิทธิ์แอดมินของบัญชีนี้ก่อนปล่อยเข้าใช้งาน (บูตสแตรปแอดมินหลักคนแรกอัตโนมัติถ้ายังไม่เคยตั้งค่าระบบแอดมินเลย)
   let roleInfo;
   try {
-    roleInfo = await resolveCurrentAdminRole(auth.currentUser);
+    roleInfo = await withTimeout(
+      resolveCurrentAdminRole(auth.currentUser),
+      15000,
+      "ตรวจสอบสิทธิ์ Admin นานเกินไป"
+    );
   } catch (err) {
     // ส่วนใหญ่เกิดจาก Firestore Security Rules ยังไม่อนุญาตให้อ่าน/เขียน collection "admins"
     document.getElementById("loginError").textContent =
@@ -137,9 +167,13 @@ async function showAdmin() {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("adminShell").style.display = "block";
   document.getElementById("qaManageAdmins").style.display = currentAdminRole === "main" ? "" : "none";
-  const s = await getDoc(doc(db, "settings", "main"));
+  const s = await withTimeout(
+    getDoc(doc(db, "settings", "main")),
+    15000,
+    "โหลดการตั้งค่าเว็บไซต์นานเกินไป"
+  );
   if (s.exists()) document.getElementById("adminSiteName").textContent = s.data().website_name || "Music Store";
-  loadDashboard();
+  await withTimeout(loadDashboard(), 20000, "โหลดข้อมูล Dashboard นานเกินไป");
 }
 
 // ---------------- View switching ----------------
