@@ -9,7 +9,7 @@ import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut,
   reauthenticateWithCredential, EmailAuthProvider, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initOrdersView } from "./orders.js?v=20260904-fullwav";
+import { initOrdersView } from "./orders.js?v=20260904-orderzip";
 import { resolveCurrentAdminRole, initAdminsView } from "./admin-roles.js";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
@@ -473,26 +473,13 @@ async function confirmDeleteSong(id) {
 }
 
 // ================= CATEGORIES =================
-let catSelectMode = false;
-const selectedCatIds = new Set();
-let currentCatListView = [];
-
 async function loadCategories() {
   const snap = await getDocs(collection(db, "categories"));
   CACHE.categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  selectedCatIds.clear();
-  updateCatBulkBar();
-  renderCategoryList(CACHE.categories);
-}
-
-function renderCategoryList(list) {
-  currentCatListView = list;
   const wrap = document.getElementById("catList");
-  if (list.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มีหมวดหมู่</div>'; return; }
-  wrap.innerHTML = list.map(c => `
-    <div class="list-row">
-      ${catSelectMode ? `<input type="checkbox" class="cat-select-chk" data-id="${c.id}" ${selectedCatIds.has(c.id) ? "checked" : ""} style="width:20px;height:20px;flex-shrink:0;">` : ""}
-      <div class="info"><div class="n1">${escapeHtml(c.category_name)}</div>
+  if (CACHE.categories.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มีหมวดหมู่</div>'; return; }
+  wrap.innerHTML = CACHE.categories.map(c => `
+    <div class="list-row"><div class="info"><div class="n1">${escapeHtml(c.category_name)}</div>
     <div class="n2">${escapeHtml(c.description || "")}</div></div>
     <div class="row-actions"><button class="icon-btn" data-edit="${c.id}">✎</button>
     <button class="icon-btn danger" data-del="${c.id}">🗑</button></div></div>`).join("");
@@ -503,49 +490,6 @@ function renderCategoryList(list) {
       showToast("ลบแล้ว", "success"); loadCategories(); loadDashboard();
     });
   }));
-  wrap.querySelectorAll(".cat-select-chk").forEach(chk => chk.addEventListener("change", () => {
-    const id = chk.getAttribute("data-id");
-    if (chk.checked) selectedCatIds.add(id); else selectedCatIds.delete(id);
-    updateCatBulkBar();
-  }));
-}
-
-function updateCatBulkBar() {
-  document.getElementById("catSelectedCount").textContent = `เลือกแล้ว ${selectedCatIds.size} หมวดหมู่`;
-  document.getElementById("catBulkDeleteBtn").disabled = selectedCatIds.size === 0;
-  document.getElementById("catSelectAllChk").checked =
-    currentCatListView.length > 0 && currentCatListView.every(c => selectedCatIds.has(c.id));
-}
-
-document.getElementById("catSelectModeBtn").addEventListener("click", () => {
-  catSelectMode = !catSelectMode;
-  selectedCatIds.clear();
-  document.getElementById("catBulkBar").style.display = catSelectMode ? "flex" : "none";
-  document.getElementById("catSelectModeBtn").style.background = catSelectMode ? "var(--accent)" : "";
-  document.getElementById("catSelectModeBtn").style.color = catSelectMode ? "#fff" : "";
-  updateCatBulkBar();
-  renderCategoryList(currentCatListView);
-});
-document.getElementById("catSelectAllChk").addEventListener("change", (e) => {
-  if (e.target.checked) currentCatListView.forEach(c => selectedCatIds.add(c.id));
-  else selectedCatIds.clear();
-  updateCatBulkBar();
-  renderCategoryList(currentCatListView);
-});
-document.getElementById("catBulkDeleteBtn").addEventListener("click", () => {
-  const ids = Array.from(selectedCatIds);
-  if (ids.length === 0) return;
-  openConfirm(`ต้องการลบหมวดหมู่ที่เลือกไว้ ${ids.length} รายการหรือไม่?`, async () => {
-    for (const id of ids) await deleteDoc(doc(db, "categories", id));
-    selectedCatIds.clear();
-    catSelectMode = false;
-    document.getElementById("catBulkBar").style.display = "none";
-    document.getElementById("catSelectModeBtn").style.background = "";
-    document.getElementById("catSelectModeBtn").style.color = "";
-    showToast(`ลบหมวดหมู่แล้ว ${ids.length} รายการ`, "success");
-    loadCategories();
-    loadDashboard();
-  });
 }
 function openAddCat() { editingCatId = null; document.getElementById("catFormTitle").textContent = "เพิ่มหมวดหมู่"; document.getElementById("fCatName").value = ""; document.getElementById("fCatDesc").value = ""; document.getElementById("catFormBackdrop").classList.add("show"); }
 function openEditCat(id) {
@@ -568,26 +512,13 @@ document.getElementById("catSaveBtn").addEventListener("click", async () => {
 });
 
 // ================= DJs =================
-let djSelectMode = false;
-const selectedDjIds = new Set();
-let currentDjListView = [];
-
 async function loadDjs() {
   const snap = await getDocs(collection(db, "djs"));
   CACHE.djs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  selectedDjIds.clear();
-  updateDjBulkBar();
-  renderDjList(CACHE.djs);
-}
-
-function renderDjList(list) {
-  currentDjListView = list;
   const wrap = document.getElementById("djList");
-  if (list.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มี DJ</div>'; return; }
-  wrap.innerHTML = list.map(d => `
-    <div class="list-row">
-    ${djSelectMode ? `<input type="checkbox" class="dj-select-chk" data-id="${d.id}" ${selectedDjIds.has(d.id) ? "checked" : ""} style="width:20px;height:20px;flex-shrink:0;">` : ""}
-    <img src="${d.image_url || ""}">
+  if (CACHE.djs.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มี DJ</div>'; return; }
+  wrap.innerHTML = CACHE.djs.map(d => `
+    <div class="list-row"><img src="${d.image_url || ""}">
     <div class="info"><div class="n1">${escapeHtml(d.dj_name)}</div><div class="n2">${escapeHtml(d.description || "")}</div></div>
     <div class="row-actions"><button class="icon-btn" data-edit="${d.id}">✎</button>
     <button class="icon-btn danger" data-del="${d.id}">🗑</button></div></div>`).join("");
@@ -598,49 +529,6 @@ function renderDjList(list) {
       showToast("ลบแล้ว", "success"); loadDjs(); loadDashboard();
     });
   }));
-  wrap.querySelectorAll(".dj-select-chk").forEach(chk => chk.addEventListener("change", () => {
-    const id = chk.getAttribute("data-id");
-    if (chk.checked) selectedDjIds.add(id); else selectedDjIds.delete(id);
-    updateDjBulkBar();
-  }));
-}
-
-function updateDjBulkBar() {
-  document.getElementById("djSelectedCount").textContent = `เลือกแล้ว ${selectedDjIds.size} DJ`;
-  document.getElementById("djBulkDeleteBtn").disabled = selectedDjIds.size === 0;
-  document.getElementById("djSelectAllChk").checked =
-    currentDjListView.length > 0 && currentDjListView.every(d => selectedDjIds.has(d.id));
-}
-
-document.getElementById("djSelectModeBtn").addEventListener("click", () => {
-  djSelectMode = !djSelectMode;
-  selectedDjIds.clear();
-  document.getElementById("djBulkBar").style.display = djSelectMode ? "flex" : "none";
-  document.getElementById("djSelectModeBtn").style.background = djSelectMode ? "var(--accent)" : "";
-  document.getElementById("djSelectModeBtn").style.color = djSelectMode ? "#fff" : "";
-  updateDjBulkBar();
-  renderDjList(currentDjListView);
-});
-document.getElementById("djSelectAllChk").addEventListener("change", (e) => {
-  if (e.target.checked) currentDjListView.forEach(d => selectedDjIds.add(d.id));
-  else selectedDjIds.clear();
-  updateDjBulkBar();
-  renderDjList(currentDjListView);
-});
-document.getElementById("djBulkDeleteBtn").addEventListener("click", () => {
-  const ids = Array.from(selectedDjIds);
-  if (ids.length === 0) return;
-  openConfirm(`ต้องการลบ DJ ที่เลือกไว้ ${ids.length} รายการหรือไม่?`, async () => {
-    for (const id of ids) await deleteDoc(doc(db, "djs", id));
-    selectedDjIds.clear();
-    djSelectMode = false;
-    document.getElementById("djBulkBar").style.display = "none";
-    document.getElementById("djSelectModeBtn").style.background = "";
-    document.getElementById("djSelectModeBtn").style.color = "";
-    showToast(`ลบ DJ แล้ว ${ids.length} รายการ`, "success");
-    loadDjs();
-    loadDashboard();
-  });
 }
 function resetDjForm() {
   editingDjId = null; pendingDjImageFile = null; existingDjImageUrl = "";
@@ -688,26 +576,13 @@ document.getElementById("djSaveBtn").addEventListener("click", async function ()
 });
 
 // ================= PLAYLISTS =================
-let playlistSelectMode = false;
-const selectedPlaylistIds = new Set();
-let currentPlaylistListView = [];
-
 async function loadPlaylists() {
   const snap = await getDocs(collection(db, "playlists"));
   CACHE.playlists = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  selectedPlaylistIds.clear();
-  updatePlaylistBulkBar();
-  renderPlaylistList(CACHE.playlists);
-}
-
-function renderPlaylistList(list) {
-  currentPlaylistListView = list;
   const wrap = document.getElementById("playlistList");
-  if (list.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มีเพลย์ลิสต์</div>'; return; }
-  wrap.innerHTML = list.map(p => `
-    <div class="list-row">
-    ${playlistSelectMode ? `<input type="checkbox" class="playlist-select-chk" data-id="${p.id}" ${selectedPlaylistIds.has(p.id) ? "checked" : ""} style="width:20px;height:20px;flex-shrink:0;">` : ""}
-    <img src="${p.cover_url || ""}">
+  if (CACHE.playlists.length === 0) { wrap.innerHTML = '<div class="empty-state">ยังไม่มีเพลย์ลิสต์</div>'; return; }
+  wrap.innerHTML = CACHE.playlists.map(p => `
+    <div class="list-row"><img src="${p.cover_url || ""}">
     <div class="info"><div class="n1">${escapeHtml(p.playlist_name)}</div><div class="n2">${escapeHtml(p.description || "")}${p.price ? ` · ${formatPrice(p.price)}` : ""}</div></div>
     <div class="row-actions"><button class="icon-btn" data-edit="${p.id}">✎</button>
     <button class="icon-btn danger" data-del="${p.id}">🗑</button></div></div>`).join("");
@@ -718,49 +593,6 @@ function renderPlaylistList(list) {
       showToast("ลบแล้ว", "success"); loadPlaylists(); loadDashboard();
     });
   }));
-  wrap.querySelectorAll(".playlist-select-chk").forEach(chk => chk.addEventListener("change", () => {
-    const id = chk.getAttribute("data-id");
-    if (chk.checked) selectedPlaylistIds.add(id); else selectedPlaylistIds.delete(id);
-    updatePlaylistBulkBar();
-  }));
-}
-
-function updatePlaylistBulkBar() {
-  document.getElementById("playlistSelectedCount").textContent = `เลือกแล้ว ${selectedPlaylistIds.size} เพลย์ลิสต์`;
-  document.getElementById("playlistBulkDeleteBtn").disabled = selectedPlaylistIds.size === 0;
-  document.getElementById("playlistSelectAllChk").checked =
-    currentPlaylistListView.length > 0 && currentPlaylistListView.every(p => selectedPlaylistIds.has(p.id));
-}
-
-document.getElementById("playlistSelectModeBtn").addEventListener("click", () => {
-  playlistSelectMode = !playlistSelectMode;
-  selectedPlaylistIds.clear();
-  document.getElementById("playlistBulkBar").style.display = playlistSelectMode ? "flex" : "none";
-  document.getElementById("playlistSelectModeBtn").style.background = playlistSelectMode ? "var(--accent)" : "";
-  document.getElementById("playlistSelectModeBtn").style.color = playlistSelectMode ? "#fff" : "";
-  updatePlaylistBulkBar();
-  renderPlaylistList(currentPlaylistListView);
-});
-document.getElementById("playlistSelectAllChk").addEventListener("change", (e) => {
-  if (e.target.checked) currentPlaylistListView.forEach(p => selectedPlaylistIds.add(p.id));
-  else selectedPlaylistIds.clear();
-  updatePlaylistBulkBar();
-  renderPlaylistList(currentPlaylistListView);
-});
-document.getElementById("playlistBulkDeleteBtn").addEventListener("click", () => {
-  const ids = Array.from(selectedPlaylistIds);
-  if (ids.length === 0) return;
-  openConfirm(`ต้องการลบเพลย์ลิสต์ที่เลือกไว้ ${ids.length} รายการหรือไม่? (เพลงในเพลย์ลิสต์จะไม่ถูกลบ แค่ไม่ได้อยู่ในเพลย์ลิสต์นี้อีก)`, async () => {
-    for (const id of ids) await deleteDoc(doc(db, "playlists", id));
-    selectedPlaylistIds.clear();
-    playlistSelectMode = false;
-    document.getElementById("playlistBulkBar").style.display = "none";
-    document.getElementById("playlistSelectModeBtn").style.background = "";
-    document.getElementById("playlistSelectModeBtn").style.color = "";
-    showToast(`ลบเพลย์ลิสต์แล้ว ${ids.length} รายการ`, "success");
-    loadPlaylists();
-    loadDashboard();
-  });
 }
 function resetPlaylistForm() {
   editingPlaylistId = null; pendingPlaylistCoverFile = null; existingPlaylistCoverUrl = "";
