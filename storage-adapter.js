@@ -79,3 +79,9 @@ export async function uploadToStorage(file, onProgress, folder = "") {
 export async function uploadFullSong(file, onProgress) {
   return getStorageProvider().upload(file, { folder: "full-songs" }, onProgress);
 }
+
+// อัปโหลด ZIP ที่ระบบสร้างจากไฟล์ WAV เต็มของออเดอร์
+// แยกโฟลเดอร์จากไฟล์เพลงเดิม เพื่อไม่กระทบลิงก์/ข้อมูลเพลงที่มีอยู่แล้ว
+export async function uploadOrderZip(file, onProgress) {
+  return getStorageProvider().upload(file, { folder: "order-zips" }, onProgress);
+}
