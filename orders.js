@@ -6,7 +6,7 @@ import { db } from "./firebase-init.js";
 import {
   collection, getDocs, getDoc, setDoc, query, orderBy, where, doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { uploadOrderZip } from "./storage-adapter.js";
+import { uploadOrderZip } from "./storage-adapter.js?v=20260904-rawzip";
 
 /* ---------------- สถานะออเดอร์ (4 สถานะ) ---------------- */
 const STATUS_ORDER = ["pending_verify", "processing", "completed", "cancelled"];
