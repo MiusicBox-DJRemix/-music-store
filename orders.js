@@ -6,6 +6,8 @@ import { db } from "./firebase-init.js";
 import {
   collection, getDocs, getDoc, setDoc, query, orderBy, where, doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import JSZip from "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm";
+import { uploadOrderZip } from "./storage-adapter.js";
 
 /* ---------------- สถานะออเดอร์ (4 สถานะ) ---------------- */
 const STATUS_ORDER = ["pending_verify", "processing", "completed", "cancelled"];
@@ -38,6 +40,202 @@ function isMainAdmin() { return window.__currentAdminRole === "main"; }
 // ชื่อฟิลด์จริงใน Firestore คือ playlist_name แต่รองรับข้อมูลเก่าที่อาจใช้ name ด้วย
 function getPlaylistName(playlist) {
   return String(playlist?.playlist_name ?? playlist?.name ?? "");
+}
+
+// งานสร้าง ZIP ถูกกันซ้ำไว้ในหน้านี้ เพื่อไม่ให้ออเดอร์เดียวกันถูกสร้างหลายไฟล์
+// หาก Admin เปิด/กดซ้ำระหว่างที่กำลังดาวน์โหลด WAV จาก Cloud
+const zipJobs = new Set();
+
+function orderToast(message, type = "") {
+  if (window.__showToast) window.__showToast(message, type);
+  else if (type === "error") alert(message);
+}
+
+function getOrderPlaylistIds(order) {
+  const ids = [];
+  if (order?.playlist_id) ids.push(String(order.playlist_id));
+  if (Array.isArray(order?.playlist_ids)) {
+    order.playlist_ids.forEach((id) => id && ids.push(String(id)));
+  }
+  if (Array.isArray(order?.playlists)) {
+    order.playlists.forEach((playlist) => {
+      const id = typeof playlist === "string"
+        ? playlist
+        : (playlist?.id || playlist?.playlist_id);
+      if (id) ids.push(String(id));
+    });
+  }
+  if (typeof order?.playlist === "string") {
+    ids.push(String(order.playlist));
+  } else if (order?.playlist?.id || order?.playlist?.playlist_id) {
+    ids.push(String(order.playlist.id || order.playlist.playlist_id));
+  }
+  return [...new Set(ids)];
+}
+
+/*
+ * รวมเพลงจากทั้ง items ของออเดอร์และ playlist ที่อ้างถึง
+ * รองรับข้อมูลเก่า (playlist songs ถูก snapshot ไว้ใน items) และข้อมูลที่มี
+ * เพลงเดี่ยว + playlist ในออเดอร์เดียวกัน โดยไม่แก้ข้อมูลเดิม
+ */
+async function resolveOrderSongs(order) {
+  const songMap = new Map();
+  (order?.items || []).forEach((item) => {
+    if (!item?.song_id) return;
+    songMap.set(String(item.song_id), {
+      id: String(item.song_id),
+      title: item.title || "เพลง",
+    });
+  });
+
+  const playlistIds = getOrderPlaylistIds(order);
+  const playlistSnaps = await Promise.all(
+    playlistIds.map((playlistId) =>
+      getDocs(query(collection(db, "songs"), where("playlist_id", "==", playlistId)))
+    )
+  );
+  playlistSnaps.forEach((snap) => {
+    snap.docs.forEach((songDoc) => {
+      const song = songDoc.data();
+      if (!songMap.has(songDoc.id)) {
+        songMap.set(songDoc.id, { id: songDoc.id, title: song.song_name || "เพลง" });
+      }
+    });
+  });
+
+  return [...songMap.values()];
+}
+
+function safeZipFileName(value, fallback) {
+  const cleaned = String(value || fallback || "เพลง.wav")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /\.wav$/i.test(cleaned) ? cleaned : `${cleaned}.wav`;
+}
+
+function uniqueZipFileName(value, usedNames) {
+  const original = safeZipFileName(value, "เพลง.wav");
+  if (!usedNames.has(original)) {
+    usedNames.add(original);
+    return original;
+  }
+  const dot = original.lastIndexOf(".");
+  const base = dot > 0 ? original.slice(0, dot) : original;
+  const ext = dot > 0 ? original.slice(dot) : ".wav";
+  let index = 2;
+  let candidate = `${base} (${index})${ext}`;
+  while (usedNames.has(candidate)) {
+    index += 1;
+    candidate = `${base} (${index})${ext}`;
+  }
+  usedNames.add(candidate);
+  return candidate;
+}
+
+/*
+ * ดาวน์โหลด WAV เต็มจาก Cloud แล้วสร้าง ZIP ก่อนจึงค่อยอัปโหลด ZIP กลับขึ้น Cloud
+ * จุดสำคัญ: อ่านเฉพาะ full_file_url ของเพลง ไม่แตะ preview_url/ไฟล์ตัวอย่าง
+ */
+async function createOrderZip(orderId) {
+  if (zipJobs.has(orderId)) return { ok: false, error: "กำลังสร้าง ZIP ของออเดอร์นี้อยู่" };
+  const order = state.allOrders.find((item) => item.id === orderId);
+  if (!order) return { ok: false, error: "ไม่พบออเดอร์นี้" };
+
+  // ถ้ามี ZIP ที่สร้างสำเร็จแล้ว ใช้ลิงก์เดิมได้ ไม่สร้างไฟล์ซ้ำโดยไม่จำเป็น
+  if (order.zip_status === "ready" && order.zip_download_url) {
+    return { ok: true, url: order.zip_download_url };
+  }
+
+  zipJobs.add(orderId);
+  const zipFileName = `Order-${orderId}.zip`;
+  try {
+    await updateDoc(doc(db, "orders", orderId), {
+      zip_status: "preparing",
+      zip_error: "",
+      zip_requested_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    const orderSongs = await resolveOrderSongs(order);
+    if (orderSongs.length === 0) {
+      throw new Error("ออเดอร์นี้ไม่มีรายการเพลงสำหรับสร้าง ZIP");
+    }
+
+    const zip = new JSZip();
+    const usedNames = new Set();
+    for (let index = 0; index < orderSongs.length; index += 1) {
+      const item = orderSongs[index];
+      const songSnap = await getDoc(doc(db, "songs", item.id));
+      if (!songSnap.exists()) {
+        throw new Error(`ไม่พบข้อมูลเพลง "${item.title}"`);
+      }
+      const song = songSnap.data();
+      // ห้าม fallback ไปใช้ preview_url เพราะ ZIP ต้องเป็น WAV จริงเท่านั้น
+      if (!song.full_file_url) {
+        throw new Error(`เพลง "${song.song_name || item.title}" ยังไม่มีไฟล์เต็ม WAV บน Cloud`);
+      }
+
+      orderToast(`กำลังดึง WAV ${index + 1}/${orderSongs.length}...`);
+      const response = await fetch(song.full_file_url, { mode: "cors", cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`ดึงไฟล์ WAV ของเพลง "${song.song_name || item.title}" ไม่สำเร็จ (${response.status})`);
+      }
+      const wavBlob = await response.blob();
+      const entryName = uniqueZipFileName(
+        song.full_file_name || `${song.song_name || item.title}.wav`,
+        usedNames
+      );
+      zip.file(entryName, wavBlob);
+    }
+
+    orderToast("กำลังบีบอัดไฟล์ WAV เป็น ZIP...");
+    const zipBlob = await zip.generateAsync(
+      { type: "blob", compression: "STORE" },
+      (metadata) => orderToast(`กำลังสร้าง ZIP... ${Math.round(metadata.percent)}%`)
+    );
+    const zipFile = new File([zipBlob], zipFileName, { type: "application/zip" });
+
+    orderToast("กำลังอัปโหลด ZIP ขึ้น Cloud...");
+    const uploadResult = await uploadOrderZip(
+      zipFile,
+      (percent) => orderToast(`กำลังอัปโหลด ZIP... ${percent}%`)
+    );
+    if (!uploadResult?.url) {
+      throw new Error("Cloud ไม่ส่ง Download Link กลับมา");
+    }
+
+    const downloadUrl = toCloudinaryDownloadUrl(uploadResult.url);
+    // บันทึกลิงก์หลังอัปโหลดสำเร็จเท่านั้น
+    await updateDoc(doc(db, "orders", orderId), {
+      zip_status: "ready",
+      zip_download_url: downloadUrl,
+      zip_file_name: zipFileName,
+      zip_public_id: uploadResult.publicId || "",
+      zip_song_count: orderSongs.length,
+      zip_created_at: new Date().toISOString(),
+      zip_error: "",
+      updated_at: new Date().toISOString(),
+    });
+    return { ok: true, url: downloadUrl };
+  } catch (err) {
+    const errorMessage = err?.message || String(err);
+    // ถ้าเกิดข้อผิดพลาด ให้คงสถานะออเดอร์เดิมไว้และไม่บันทึกลิงก์
+    try {
+      await updateDoc(doc(db, "orders", orderId), {
+        zip_status: "failed",
+        zip_error: errorMessage,
+        zip_download_url: "",
+        zip_file_name: "",
+        updated_at: new Date().toISOString(),
+      });
+    } catch (statusError) {
+      console.error("บันทึกสถานะ ZIP ไม่สำเร็จ:", statusError);
+    }
+    return { ok: false, error: errorMessage };
+  } finally {
+    zipJobs.delete(orderId);
+  }
 }
 
 function getReceiptNumber(orderId, createdAt) {
@@ -164,7 +362,7 @@ function ensureFullFilesElements() {
         <h3>ไฟล์เพลงเต็มสำหรับส่งลูกค้า</h3>
         <button class="modal-close" id="fullFilesClose">✕</button>
       </div>
-      <p style="color:var(--text-dim);font-size:13px;margin-top:0;">ดาวน์โหลดแล้วส่งให้ลูกค้าทาง WhatsApp ด้วยตัวเอง — ลิงก์นี้สำหรับ Admin เท่านั้น ห้ามส่งลิงก์นี้ตรงให้ลูกค้า</p>
+       <p style="color:var(--text-dim);font-size:13px;margin-top:0;">ระบบจะสร้าง ZIP จาก WAV เต็มให้อัตโนมัติหลังยืนยันโอน — ลิงก์นี้สำหรับ Admin เท่านั้น ห้ามส่งลิงก์นี้ตรงให้ลูกค้า</p>
       <div id="fullFilesContent"></div>
     </div>
   `;
@@ -427,6 +625,13 @@ function renderHistory() {
     const typeBadge = isPlaylistOrder
       ? `<span class="order-type-badge" style="background:rgba(122,92,255,.15);color:var(--accent);">🎶 ยกเพลย์ลิสต์${o.playlist_name ? " · " + escapeHtml(o.playlist_name) : ""}</span>`
       : `<span class="order-type-badge" style="background:rgba(255,255,255,.08);color:var(--text-dim);">🎵 เพลงเดี่ยว</span>`;
+    const zipInfo = o.zip_download_url
+      ? `<div class="n2" style="color:var(--success);">📦 ${escapeHtml(o.zip_file_name || `Order-${o.id}.zip`)} · ${Number(o.zip_song_count || (o.items || []).length)} เพลง · <a href="${escapeHtml(toCloudinaryDownloadUrl(o.zip_download_url))}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">ดาวน์โหลด ZIP</a></div>`
+      : o.zip_status === "failed"
+        ? `<div class="n2" style="color:var(--danger);">⚠️ สร้าง ZIP ไม่สำเร็จ: ${escapeHtml(o.zip_error || "ไม่ทราบสาเหตุ")}</div>`
+        : o.zip_status === "preparing"
+          ? `<div class="n2" style="color:var(--accent);">⏳ กำลังสร้าง ZIP...</div>`
+          : "";
     return `
       <div class="list-row" style="flex-direction:column;align-items:stretch;gap:8px;">
         <div class="info">
@@ -434,12 +639,14 @@ function renderHistory() {
           <div class="n1">${escapeHtml(o.customer_name)} · ${formatLAK(o.total)}</div>
           <div class="n2">${dateStr} · ${escapeHtml(o.whatsapp)}</div>
           <div class="n2">${songNames}</div>
+          ${zipInfo}
         </div>
         <span class="status-badge" style="background:${cfg.bg};color:${cfg.color};">${cfg.emoji} ${cfg.label}</span>
         <select class="status-select" data-order-id="${o.id}">${options}</select>
         <div class="row-actions" style="justify-content:flex-end;">
           <button class="icon-btn" data-receipt-order="${o.id}" title="ดูใบเสร็จ">🧾</button>
           ${(o.status === "processing" || o.status === "completed") ? `<button class="icon-btn" data-fullfiles-order="${o.id}" title="ไฟล์เต็มสำหรับส่งลูกค้า">📥</button>` : ""}
+          ${o.zip_status === "failed" ? `<button class="icon-btn" data-retry-zip-order="${o.id}" title="สร้าง ZIP ใหม่">🔁</button>` : ""}
           <button class="icon-btn" data-edit-order="${o.id}" title="แก้ไขออเดอร์">✏️</button>
           ${isMainAdmin() ? `<button class="icon-btn danger" data-delete-order="${o.id}" title="ลบออเดอร์">🗑</button>` : ""}
         </div>
@@ -455,6 +662,9 @@ function renderHistory() {
   });
   wrap.querySelectorAll("[data-fullfiles-order]").forEach((btn) => {
     btn.addEventListener("click", () => openFullFilesModal(btn.getAttribute("data-fullfiles-order")));
+  });
+  wrap.querySelectorAll("[data-retry-zip-order]").forEach((btn) => {
+    btn.addEventListener("click", () => retryOrderZip(btn.getAttribute("data-retry-zip-order")));
   });
   wrap.querySelectorAll("[data-edit-order]").forEach((btn) => {
     btn.addEventListener("click", () => openEditOrderModal(btn.getAttribute("data-edit-order")));
@@ -565,7 +775,15 @@ async function openFullFilesModal(orderId) {
     }
   }));
 
-  content.innerHTML = rows.join("") || `<div class="empty-state">ไม่มีรายการเพลงในออเดอร์นี้</div>`;
+  const zipRow = order.zip_download_url
+    ? `<div class="receipt-line" style="background:rgba(41,204,113,.08);border:1px solid rgba(41,204,113,.25);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div><strong>📦 ZIP รวมเพลงทั้งออเดอร์</strong><small>${escapeHtml(order.zip_file_name || `Order-${order.id}.zip`)} · ${Number(order.zip_song_count || items.length)} เพลง</small></div>
+        <a class="btn" style="padding:8px 14px;font-size:13px;" href="${escapeHtml(toCloudinaryDownloadUrl(order.zip_download_url))}" target="_blank" rel="noopener">ดาวน์โหลด ZIP</a>
+      </div>`
+    : order.zip_status === "failed"
+      ? `<div class="receipt-line" style="color:var(--danger);"><div><strong>⚠️ ยังสร้าง ZIP ไม่สำเร็จ</strong><small>${escapeHtml(order.zip_error || "ไม่ทราบสาเหตุ")}</small></div></div>`
+      : "";
+  content.innerHTML = zipRow + (rows.join("") || `<div class="empty-state">ไม่มีรายการเพลงในออเดอร์นี้</div>`);
 }
 
 function closeFullFilesModal() {
@@ -576,11 +794,59 @@ function closeFullFilesModal() {
 
 /* ---------------- เปลี่ยนสถานะออเดอร์ ---------------- */
 async function handleStatusChange(orderId, newStatus) {
+  const order = state.allOrders.find((item) => item.id === orderId);
+  // "ยืนยันโอนแล้ว" จะยังไม่เปลี่ยนเป็น processing จนกว่า ZIP และลิงก์จะพร้อม
+  if (newStatus === "processing" && order?.status !== "processing") {
+    await confirmPaymentAndCreateZip(orderId);
+    return;
+  }
   try {
     await updateDoc(doc(db, "orders", orderId), { status: newStatus, updated_at: new Date().toISOString() });
     await refreshDashboardAndHistory();
   } catch (err) {
     alert("เปลี่ยนสถานะไม่สำเร็จ: " + err.message);
+  }
+}
+
+async function confirmPaymentAndCreateZip(orderId) {
+  const result = await createOrderZip(orderId);
+  if (!result.ok) {
+    await refreshDashboardAndHistory();
+    orderToast(`ยืนยันโอนไม่สำเร็จ: ${result.error} — ออเดอร์ยังคงรอตรวจสอบ และสามารถกดสร้าง ZIP ใหม่ได้`, "error");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "orders", orderId), {
+      status: "processing",
+      payment_verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await refreshDashboardAndHistory();
+    orderToast("ยืนยันการโอนแล้ว และสร้าง Download Link สำหรับ Admin เรียบร้อย", "success");
+  } catch (err) {
+    // ZIP ยังอยู่บน Cloud แต่จะไม่แสดงเป็นออเดอร์ที่ชำระแล้วจนกว่าจะอัปเดตสถานะสำเร็จ
+    await refreshDashboardAndHistory();
+    orderToast("สร้าง ZIP สำเร็จ แต่เปลี่ยนสถานะออเดอร์ไม่สำเร็จ: " + err.message, "error");
+  }
+}
+
+async function retryOrderZip(orderId) {
+  const order = state.allOrders.find((item) => item.id === orderId);
+  if (!order || zipJobs.has(orderId)) return;
+  const result = await createOrderZip(orderId);
+  if (!result.ok) {
+    await refreshDashboardAndHistory();
+    orderToast("สร้าง ZIP ใหม่ไม่สำเร็จ: " + result.error, "error");
+    return;
+  }
+
+  // กรณี retry จากขั้นตอนยืนยันโอนที่ค้างอยู่ ให้เดินหน้าส่งสถานะ processing ต่ออัตโนมัติ
+  if (order.status === "pending_verify") {
+    await confirmPaymentAndCreateZip(orderId);
+  } else {
+    await refreshDashboardAndHistory();
+    orderToast("สร้าง ZIP ใหม่และ Download Link เรียบร้อย", "success");
   }
 }
 
