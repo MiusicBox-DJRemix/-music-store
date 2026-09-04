@@ -1,7 +1,7 @@
 // app-admin.js — หน้า Admin: Login (Firebase Auth) + CRUD (Firestore) + อัปโหลดไฟล์ (Cloudinary)
 // ===================================================
 import { db, auth, uploadToCloudinary } from "./firebase-init.js";
-import { uploadFullSong } from "./storage-adapter.js";
+import { uploadFullSong } from "./storage-adapter.js?v=20260904-rawzip";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
