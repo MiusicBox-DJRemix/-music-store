@@ -50,7 +50,15 @@
       <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
         <button class="icon-btn back-btn">←</button>
         <div class="search-box" style="flex:1;"><input id="songSearch" placeholder="ค้นหาเพลง..."></div>
+        <button class="icon-btn" id="songSelectModeBtn" title="เลือกหลายเพลง">☑️</button>
         <button class="icon-btn" id="addSongBtn" style="background:var(--accent);color:#fff;">＋</button>
+      </div>
+      <div id="songBulkBar" style="display:none;padding:0 16px 10px;align-items:center;justify-content:space-between;gap:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);">
+          <input type="checkbox" id="songSelectAllChk"> เลือกทั้งหมด
+        </label>
+        <span id="songSelectedCount" style="font-size:13px;color:var(--text-dim);">เลือกแล้ว 0 เพลง</span>
+        <button class="btn danger" id="songBulkDeleteBtn" style="padding:8px 14px;font-size:13px;" disabled>ลบที่เลือก</button>
       </div>
       <div id="songList"></div>
     </div>
@@ -299,13 +307,13 @@
   <div class="modal-backdrop" id="bulkUploadBackdrop">
     <div class="modal">
       <div class="modal-header"><h3>เพิ่มเพลงหลายไฟล์พร้อมกัน</h3><button class="modal-close" id="bulkUploadClose">✕</button></div>
-      <p style="color:var(--text-dim);font-size:13px;margin-top:-8px;">เลือกไฟล์เพลงหลายไฟล์พร้อมกันจากแอป Files แล้วระบบจะอัปโหลดทีละไฟล์ให้อัตโนมัติ พร้อมจัดเข้าเพลย์ลิสต์เดียวกันทั้งหมด</p>
+      <p style="color:var(--text-dim);font-size:13px;margin-top:-8px;">เลือกไฟล์เพลงหลายไฟล์พร้อมกันจากแอป Files แล้วระบบจะอัปโหลดทีละไฟล์ให้อัตโนมัติ — จะเลือกจัดเข้าเพลย์ลิสต์เดียวกันทั้งหมด หรือเว้นว่างไว้เพื่อเพิ่มเป็นเพลงเดี่ยวๆ หลายเพลงพร้อมกันก็ได้</p>
 
       <div class="field">
-        <label>เพลย์ลิสต์ปลายทาง *</label>
-        <select id="bulkPlaylist"><option value="">— เลือกเพลย์ลิสต์ —</option></select>
+        <label>เพลย์ลิสต์ปลายทาง (ไม่บังคับ — เว้นว่างได้ถ้าแค่ต้องการเพิ่มเพลงเดี่ยวๆ หลายเพลงพร้อมกัน)</label>
+        <select id="bulkPlaylist"><option value="">— ไม่ระบุ —</option></select>
       </div>
-      <div class="field"><label>หรือสร้างเพลย์ลิสต์ใหม่ (ถ้าไม่เลือกด้านบน)</label><input id="bulkNewPlaylistName" placeholder="ชื่อเพลย์ลิสต์ใหม่"></div>
+      <div class="field"><label>หรือสร้างเพลย์ลิสต์ใหม่ (ไม่บังคับ)</label><input id="bulkNewPlaylistName" placeholder="ชื่อเพลย์ลิสต์ใหม่"></div>
 
       <div class="field">
         <label>ไฟล์เพลงทั้งหมด (เลือกได้หลายไฟล์)</label>
@@ -417,6 +425,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module" src="app-admin.js?v=20260904-bulkwav"></script>
+  <script type="module" src="app-admin.js?v=20260904-bulkdel"></script>
 </body>
 </html>
