@@ -43,6 +43,7 @@
         <button id="qaManageDjs">🎧<br>จัดการ DJ</button>
         <button id="qaOrders">🧾<br>จัดการออเดอร์</button>
         <button id="qaSettings">🔧<br>ตั้งค่าเว็บไซต์</button>
+        <button id="qaManageAdmins" style="display:none;">👤<br>จัดการแอดมิน</button>
       </div>
     </div>
 
@@ -231,6 +232,16 @@
         <button class="btn" id="saveSettingsBtn">บันทึกการตั้งค่า</button>
       </div>
     </div>
+
+    <div id="view-admins" class="view" style="display:none;">
+      <div class="container" style="padding:14px 16px 6px;display:flex;gap:8px;align-items:center;">
+        <button class="icon-btn back-btn">←</button>
+        <div style="flex:1;font-weight:800;">จัดการแอดมิน</div>
+        <button class="icon-btn" id="addAdminBtn" style="background:var(--accent);color:#fff;">＋</button>
+      </div>
+      <p style="color:var(--text-dim);font-size:13px;padding:0 16px;margin-top:-4px;">แอดมินหลักเพิ่ม/ลบ/แก้ไขแอดมินคนอื่นได้ทั้งหมด ส่วนแอดมินย่อยจะเข้าหน้านี้ไม่ได้และไม่เห็นเมนูนี้</p>
+      <div id="adminList" class="container" style="padding:10px 16px 24px;"></div>
+    </div>
   </div>
 
   <div class="modal-backdrop" id="songFormBackdrop">
@@ -286,6 +297,24 @@
         <input type="file" id="djImageInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
       </div>
       <button class="btn" id="djSaveBtn">บันทึก</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="adminFormBackdrop">
+    <div class="modal">
+      <div class="modal-header"><h3 id="adminFormTitle">เพิ่มแอดมิน</h3><button class="modal-close" id="adminFormClose">✕</button></div>
+      <div class="field"><label>อีเมล *</label><input id="fAdminEmail" type="email" autocomplete="off"></div>
+      <div class="field" id="adminPasswordField"><label>รหัสผ่าน * (อย่างน้อย 6 ตัวอักษร)</label><input id="fAdminPassword" type="password" autocomplete="new-password"></div>
+      <div class="field"><label>ชื่อที่แสดง</label><input id="fAdminDisplayName" placeholder="เช่น น้องแอม"></div>
+      <div class="field">
+        <label>ระดับสิทธิ์</label>
+        <select id="fAdminRole">
+          <option value="sub">แอดมินย่อย (จัดการเพลง/หมวดหมู่/DJ/เพลย์ลิสต์/ออเดอร์ได้ปกติ แต่จัดการแอดมินคนอื่นไม่ได้)</option>
+          <option value="main">แอดมินหลัก (จัดการได้ทุกอย่าง รวมถึงเพิ่ม/ลบ/แก้ไขแอดมินคนอื่น)</option>
+        </select>
+      </div>
+      <div id="adminFormNote" style="font-size:12px;color:var(--text-dim);margin-top:-6px;margin-bottom:14px;"></div>
+      <button class="btn" id="adminSaveBtn">บันทึก</button>
     </div>
   </div>
 
@@ -425,6 +454,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module" src="app-admin.js?v=20260904-bulkdel"></script>
+  <script type="module" src="app-admin.js?v=20260904-adminroles"></script>
 </body>
 </html>
