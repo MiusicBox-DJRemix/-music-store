@@ -6,7 +6,8 @@ import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  signInWithEmailAndPassword, onAuthStateChanged, signOut
+  signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  reauthenticateWithCredential, EmailAuthProvider, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { initOrdersView } from "./orders.js?v=20260904-fullwav";
 import { resolveCurrentAdminRole, initAdminsView } from "./admin-roles.js";
@@ -66,6 +67,51 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   btn.disabled = false; btn.textContent = "เข้าสู่ระบบ";
 });
 document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth));
+
+// ================= เปลี่ยนรหัสผ่านของฉัน (ทุกแอดมินทำได้ ไม่จำกัดเฉพาะแอดมินหลัก) =================
+function resetChangePasswordForm() {
+  document.getElementById("cpCurrentPassword").value = "";
+  document.getElementById("cpNewPassword").value = "";
+  document.getElementById("cpConfirmPassword").value = "";
+  document.getElementById("cpFeedback").textContent = "";
+}
+document.getElementById("changePasswordBtn").addEventListener("click", () => {
+  resetChangePasswordForm();
+  document.getElementById("changePasswordBackdrop").classList.add("show");
+});
+document.getElementById("changePasswordClose").addEventListener("click", () => {
+  document.getElementById("changePasswordBackdrop").classList.remove("show");
+});
+document.getElementById("changePasswordSaveBtn").addEventListener("click", async function () {
+  const feedback = document.getElementById("cpFeedback");
+  const currentPassword = document.getElementById("cpCurrentPassword").value;
+  const newPassword = document.getElementById("cpNewPassword").value;
+  const confirmPassword = document.getElementById("cpConfirmPassword").value;
+  feedback.style.color = "var(--danger)";
+
+  if (!currentPassword || !newPassword || !confirmPassword) { feedback.textContent = "กรุณากรอกให้ครบทุกช่อง"; return; }
+  if (newPassword.length < 6) { feedback.textContent = "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"; return; }
+  if (newPassword !== confirmPassword) { feedback.textContent = "ยืนยันรหัสผ่านใหม่ไม่ตรงกัน"; return; }
+
+  const btn = this; btn.disabled = true; btn.textContent = "กำลังบันทึก...";
+  feedback.textContent = "";
+  try {
+    const user = auth.currentUser;
+    // Firebase บังคับให้ล็อกอินสดๆ ก่อนเปลี่ยนรหัสผ่าน (sensitive operation) จึงต้อง reauthenticate ด้วยรหัสผ่านเดิมก่อนเสมอ
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword);
+    feedback.style.color = "var(--success)";
+    feedback.textContent = "เปลี่ยนรหัสผ่านสำเร็จแล้ว ✓";
+    showToast("เปลี่ยนรหัสผ่านสำเร็จ", "success");
+    setTimeout(() => { document.getElementById("changePasswordBackdrop").classList.remove("show"); }, 1000);
+  } catch (err) {
+    if (err && err.code === "auth/wrong-password") feedback.textContent = "รหัสผ่านปัจจุบันไม่ถูกต้อง";
+    else if (err && err.code === "auth/too-many-requests") feedback.textContent = "ลองผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่";
+    else feedback.textContent = "เปลี่ยนรหัสผ่านไม่สำเร็จ: " + (err.message || err);
+  }
+  btn.disabled = false; btn.textContent = "บันทึกรหัสผ่านใหม่";
+});
 
 function showLogin() { document.getElementById("loginScreen").style.display = "flex"; document.getElementById("adminShell").style.display = "none"; }
 async function showAdmin() {
