@@ -19,6 +19,17 @@ const STATUS_CONFIG = {
 function escapeHtml(str) {
   return String(str == null ? "" : str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+// Safari (และเบราว์เซอร์มือถือส่วนใหญ่) เมิน HTML `download` attribute สำหรับลิงก์ข้ามโดเมน
+// เลยเปิดไฟล์เสียง/วิดีโอด้วยเครื่องเล่นในตัวแทนที่จะดาวน์โหลดให้ — ต้องสั่ง Cloudinary ให้ส่งไฟล์
+// แบบ Content-Disposition: attachment โดยแทรก fl_attachment เข้าไปใน URL แทน
+function toCloudinaryDownloadUrl(url) {
+  if (!url || typeof url !== "string") return url;
+  const marker = "/upload/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return url; // ไม่ใช่ URL รูปแบบ Cloudinary มาตรฐาน ปล่อยผ่านไม่แตะต้อง
+  if (url.includes("/fl_attachment")) return url; // ใส่ไปแล้ว ไม่ใส่ซ้ำ
+  return url.slice(0, idx + marker.length) + "fl_attachment/" + url.slice(idx + marker.length);
+}
 function formatLAK(v) { return Number(v || 0).toLocaleString("en-US") + " LAK"; }
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 // ชื่อฟิลด์จริงใน Firestore คือ playlist_name แต่รองรับข้อมูลเก่าที่อาจใช้ name ด้วย
@@ -544,7 +555,7 @@ async function openFullFilesModal(orderId) {
       return `
         <div class="receipt-line">
           <div><strong>${escapeHtml(item.title || song.song_name || "เพลง")}</strong><small>${escapeHtml(song.full_file_name || "full.wav")}</small></div>
-          <a class="btn secondary" style="padding:8px 14px;font-size:13px;" href="${song.full_file_url}" target="_blank" rel="noopener">ดาวน์โหลด</a>
+          <a class="btn secondary" style="padding:8px 14px;font-size:13px;" href="${toCloudinaryDownloadUrl(song.full_file_url)}" target="_blank" rel="noopener">ดาวน์โหลด</a>
         </div>`;
     } catch (err) {
       return `<div class="receipt-line"><div><strong>${escapeHtml(item.title || "เพลง")}</strong><small>โหลดข้อมูลไม่สำเร็จ</small></div></div>`;
