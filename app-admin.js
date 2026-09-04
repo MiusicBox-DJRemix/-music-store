@@ -511,16 +511,22 @@ document.getElementById("playlistSaveBtn").addEventListener("click", async funct
 
 // ================= BULK UPLOAD (เพิ่มเพลงหลายไฟล์พร้อมกันเป็นเพลย์ลิสต์เดียว) =================
 let bulkFiles = [];
+let bulkFullFiles = [];
 let pendingBulkCoverFile = null;
 
 async function openBulkUpload() {
-  bulkFiles = []; pendingBulkCoverFile = null;
+  bulkFiles = []; bulkFullFiles = []; pendingBulkCoverFile = null;
   document.getElementById("bulkNewPlaylistName").value = "";
   document.getElementById("bulkPrice").value = "";
   document.getElementById("bulkFilesInput").value = "";
   document.getElementById("bulkCoverInput").value = "";
   document.getElementById("bulkFilesPicker").textContent = "📁 แตะเพื่อเลือกไฟล์เพลงหลายไฟล์";
   document.getElementById("bulkFilesPicker").className = "file-picker";
+  document.getElementById("bulkFullFilesInput").value = "";
+  document.getElementById("bulkFullFilesPicker").textContent = "🔒 แตะเพื่อเลือกไฟล์ WAV เต็มหลายไฟล์";
+  document.getElementById("bulkFullFilesPicker").className = "file-picker";
+  document.getElementById("bulkFullFilesMeta").style.display = "none";
+  document.getElementById("bulkFullFilesMeta").textContent = "";
   document.getElementById("bulkCoverPicker").textContent = "🖼️ แตะเพื่อเลือกรูปปก (ใช้ร่วมกันทั้งชุด)";
   document.getElementById("bulkCoverPicker").className = "file-picker";
   document.getElementById("bulkProgressWrap").style.display = "none";
@@ -550,6 +556,20 @@ document.getElementById("bulkFilesInput").addEventListener("change", (e) => {
   document.getElementById("bulkFilesPicker").textContent = `🎵 เลือกแล้ว ${bulkFiles.length} ไฟล์`;
   document.getElementById("bulkFilesPicker").className = "file-picker filled";
 });
+document.getElementById("bulkFullFilesInput").addEventListener("change", (e) => {
+  const files = Array.from(e.target.files || []);
+  const meta = document.getElementById("bulkFullFilesMeta");
+  const nonWav = files.filter(f => !/\.wav$/i.test(f.name));
+  if (nonWav.length > 0) {
+    showToast("ไฟล์เพลงเต็มต้องเป็นนามสกุล .wav เท่านั้น — ตัดไฟล์ที่ไม่ใช่ WAV ออกแล้ว: " + nonWav.map(f => f.name).join(", "), "error");
+  }
+  bulkFullFiles = files.filter(f => /\.wav$/i.test(f.name));
+  if (bulkFullFiles.length === 0) { meta.style.display = "none"; return; }
+  document.getElementById("bulkFullFilesPicker").textContent = `🔒 เลือกแล้ว ${bulkFullFiles.length} ไฟล์`;
+  document.getElementById("bulkFullFilesPicker").className = "file-picker filled";
+  meta.textContent = "จะจับคู่กับไฟล์ตัวอย่างโดยเทียบชื่อไฟล์ (ไม่รวมนามสกุล) — เพลงที่จับคู่ไม่ได้จะยังไม่มีไฟล์เต็ม เพิ่มทีหลังได้ที่หน้าแก้ไขเพลง";
+  meta.style.display = "block";
+});
 document.getElementById("bulkCoverInput").addEventListener("change", (e) => {
   const f = e.target.files[0]; if (!f) return;
   pendingBulkCoverFile = f;
@@ -559,6 +579,12 @@ document.getElementById("bulkCoverInput").addEventListener("change", (e) => {
 
 function cleanFileNameToSongName(fileName) {
   return nameFromFile(fileName);
+}
+
+// จับคู่ไฟล์เต็ม WAV กับไฟล์ตัวอย่าง โดยเทียบชื่อไฟล์แบบไม่สนตัวพิมพ์เล็ก-ใหญ่ และไม่สนนามสกุล
+function matchFullFile(previewFileName, fullFilesList) {
+  const key = nameFromFile(previewFileName).trim().toLowerCase();
+  return fullFilesList.find(f => nameFromFile(f.name).trim().toLowerCase() === key) || null;
 }
 
 document.getElementById("bulkUploadBtn").addEventListener("click", async function () {
@@ -595,6 +621,7 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
     const catId = catSel.value;
     const catName = catSel.value ? catSel.options[catSel.selectedIndex].text : "";
 
+    let matchedCount = 0;
     for (let i = 0; i < bulkFiles.length; i++) {
       const file = bulkFiles[i];
       document.getElementById("bulkStatusText").textContent = `กำลังอัปโหลด ${i + 1}/${bulkFiles.length}: ${file.name}`;
@@ -602,7 +629,8 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
         const overall = Math.round(((i + pct / 100) / bulkFiles.length) * 100);
         document.getElementById("bulkProgress").style.width = overall + "%";
       });
-      await addDoc(collection(db, "songs"), {
+
+      const songPayload = {
         song_name: cleanFileNameToSongName(file.name),
         artist: "",
         dj_name: djName,
@@ -617,12 +645,30 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
         status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      });
+      };
+
+      const matchedFull = matchFullFile(file.name, bulkFullFiles);
+      if (matchedFull) {
+        document.getElementById("bulkStatusText").textContent = `กำลังอัปโหลดไฟล์เต็ม ${i + 1}/${bulkFiles.length}: ${matchedFull.name}`;
+        const fullRes = await uploadFullSong(matchedFull, (pct) => {
+          const overall = Math.round(((i + pct / 100) / bulkFiles.length) * 100);
+          document.getElementById("bulkProgress").style.width = overall + "%";
+        });
+        songPayload.full_file_url = fullRes.url;
+        songPayload.full_file_public_id = fullRes.publicId;
+        songPayload.full_file_name = matchedFull.name;
+        matchedCount++;
+      }
+
+      await addDoc(collection(db, "songs"), songPayload);
     }
 
     document.getElementById("bulkProgress").style.width = "100%";
-    document.getElementById("bulkStatusText").textContent = `เสร็จแล้ว! เพิ่มเพลงสำเร็จ ${bulkFiles.length} เพลง`;
-    showToast(`เพิ่มเพลง ${bulkFiles.length} เพลงเข้าเพลย์ลิสต์ "${playlistName}" สำเร็จ`, "success");
+    const unmatchedNote = matchedCount < bulkFiles.length && bulkFullFiles.length > 0
+      ? ` (มีไฟล์เต็ม ${matchedCount}/${bulkFiles.length} เพลง — ที่เหลือเพิ่มทีหลังได้ที่หน้าแก้ไขเพลง)`
+      : "";
+    document.getElementById("bulkStatusText").textContent = `เสร็จแล้ว! เพิ่มเพลงสำเร็จ ${bulkFiles.length} เพลง${unmatchedNote}`;
+    showToast(`เพิ่มเพลง ${bulkFiles.length} เพลงเข้าเพลย์ลิสต์ "${playlistName}" สำเร็จ${unmatchedNote}`, "success");
     loadDashboard();
     setTimeout(() => { document.getElementById("bulkUploadBackdrop").classList.remove("show"); }, 1200);
   } catch (err) {
