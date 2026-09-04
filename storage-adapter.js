@@ -19,9 +19,9 @@ const CloudinaryProvider = {
   // folder: โฟลเดอร์ปลายทางใน Cloudinary
   // หมายเหตุ: ถ้า unsigned upload preset ตั้งค่า "Folder" เป็น Fixed/Disabled ไว้ พารามิเตอร์นี้จะถูกเมิน
   // และไฟล์จะถูกเก็บตาม path ที่ preset กำหนดแทน — เข้า Cloudinary Console > Upload presets เพื่อเช็ค/แก้ได้
-  async upload(file, { folder = "" } = {}, onProgress) {
+  async upload(file, { folder = "", resourceType = "auto" } = {}, onProgress) {
     return new Promise((resolve, reject) => {
-      const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
+      const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
       const formData = new FormData();
       formData.append("file", file);
       formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -38,13 +38,17 @@ const CloudinaryProvider = {
           if (xhr.status >= 200 && xhr.status < 300 && data.secure_url) {
             resolve({ url: data.secure_url, publicId: data.public_id, provider: "cloudinary" });
           } else {
-            reject(new Error(data.error ? data.error.message : "อัปโหลดไม่สำเร็จ"));
+            reject(new Error(data.error ? data.error.message : `อัปโหลดไม่สำเร็จ (HTTP ${xhr.status})`));
           }
         } catch (err) {
           reject(err);
         }
       };
-      xhr.onerror = () => reject(new Error("เชื่อมต่อ Cloudinary ไม่สำเร็จ"));
+      xhr.onerror = () => reject(new Error(
+        "เชื่อมต่อ Cloudinary ไม่สำเร็จ — ตรวจสอบ Cloud Name, Upload Preset, CORS หรือการเชื่อมต่ออินเทอร์เน็ต"
+      ));
+      xhr.ontimeout = () => reject(new Error("Cloudinary ใช้เวลาตอบกลับนานเกินไป"));
+      xhr.timeout = 10 * 60 * 1000;
       xhr.send(formData);
     });
   },
@@ -83,5 +87,10 @@ export async function uploadFullSong(file, onProgress) {
 // อัปโหลด ZIP ที่ระบบสร้างจากไฟล์ WAV เต็มของออเดอร์
 // แยกโฟลเดอร์จากไฟล์เพลงเดิม เพื่อไม่กระทบลิงก์/ข้อมูลเพลงที่มีอยู่แล้ว
 export async function uploadOrderZip(file, onProgress) {
-  return getStorageProvider().upload(file, { folder: "order-zips" }, onProgress);
+  // ZIP เป็นไฟล์ archive ไม่ใช่รูป/วิดีโอ จึงส่งผ่าน raw/upload โดยเฉพาะ
+  return getStorageProvider().upload(
+    file,
+    { folder: "order-zips", resourceType: "raw" },
+    onProgress
+  );
 }
