@@ -718,7 +718,9 @@ document.getElementById("bulkUploadBtn").addEventListener("click", async functio
         updated_at: new Date().toISOString()
       };
 
-      const matchedFull = matchFullFile(file.name, bulkFullFiles);
+      // ถ้าจับคู่ด้วยชื่อไฟล์ไม่ได้ แต่เลือกไฟล์ตัวอย่าง 1 ไฟล์ + ไฟล์เต็ม 1 ไฟล์พอดี — ไม่มีทางกำกวมว่าเป็นคู่ไหน จับคู่กันตรงๆ ได้เลย ไม่ต้องพึ่งชื่อไฟล์
+      const matchedFull = matchFullFile(file.name, bulkFullFiles)
+        || (bulkFiles.length === 1 && bulkFullFiles.length === 1 ? bulkFullFiles[0] : null);
       if (matchedFull) {
         document.getElementById("bulkStatusText").textContent = `กำลังอัปโหลดไฟล์เต็ม ${i + 1}/${bulkFiles.length}: ${matchedFull.name}`;
         const fullRes = await uploadFullSong(matchedFull, (pct) => {
