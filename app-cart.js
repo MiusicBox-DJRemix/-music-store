@@ -24,15 +24,26 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
         .forEach(item => {
           const id = String(item.id);
           if (!uniqueItems.has(id)) {
-            uniqueItems.set(id, {
+            const kind = item.kind === "playlist" ? "playlist" : "song";
+            const entry = {
               id,
               song_name: String(item.song_name),
               cover_url: String(item.cover_url || ""),
               dj_name: String(item.dj_name || ""),
               price: Math.max(0, Number(item.price) || 0),
-              kind: item.kind === "playlist" ? "playlist" : "song",
+              kind,
               quantity: 1
-            });
+            };
+            // เก็บ snapshot เพลงภายในเพลย์ลิสต์ไว้ต่อ (ใช้แสดงผล/ตรวจเพลงซ้ำ ไม่ใช่คิดราคา)
+            if (kind === "playlist") {
+              entry.song_ids = Array.isArray(item.song_ids) ? item.song_ids.map(String) : [];
+              entry.songs = Array.isArray(item.songs)
+                ? item.songs
+                    .filter(s => s && s.id)
+                    .map(s => ({ id: String(s.id), song_name: String(s.song_name || "เพลง") }))
+                : [];
+            }
+            uniqueItems.set(id, entry);
           }
         });
       state.cart = Array.from(uniqueItems.values());
@@ -60,6 +71,20 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
     return state.cart.reduce((total, item) => total + item.price * item.quantity, 0);
   }
 
+  // รวม track id (song id) ทุกรายการที่ "มีอยู่แล้ว" ในตะกร้า ไม่ว่าจะเป็นเพลงเดี่ยว
+  // หรือเพลงที่ซ่อนอยู่ภายในเพลย์ลิสต์ที่เพิ่มไปแล้ว — ใช้ตรวจเพลงซ้ำข้ามกันทั้งสองแบบ
+  function collectCartSongIds() {
+    const ids = new Set();
+    state.cart.forEach(item => {
+      if (item.kind === "playlist") {
+        (item.song_ids || []).forEach(id => ids.add(String(id)));
+      } else {
+        ids.add(String(item.id));
+      }
+    });
+    return ids;
+  }
+
   function addToCart(song) {
     if (!song || !song.id) return;
     const kind = song.kind === "playlist" ? "playlist" : "song";
@@ -70,9 +95,27 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       showToast("รายการนี้อยู่ในตะกร้าแล้ว", "error");
       return;
     }
+
+    const existingSongIds = collectCartSongIds();
+    if (kind === "song") {
+      // เพลงเดี่ยวที่จะเพิ่ม ซ้ำกับเพลงที่อยู่ในเพลย์ลิสต์ที่เพิ่มไปแล้วหรือไม่ (ตรวจด้วย track id เดิม)
+      if (existingSongIds.has(String(song.id))) {
+        showToast("เพลงนี้อยู่ในเพลย์ลิสต์ที่คุณเพิ่มไว้แล้ว", "error");
+        return;
+      }
+    } else {
+      // เพลย์ลิสต์ที่จะเพิ่ม มีเพลงซ้ำกับเพลงเดี่ยว/เพลย์ลิสต์อื่นที่อยู่ในตะกร้าแล้วหรือไม่
+      const incomingIds = Array.isArray(song.song_ids) ? song.song_ids.map(String) : [];
+      const hasOverlap = incomingIds.some(id => existingSongIds.has(id));
+      if (hasOverlap) {
+        showToast("มีเพลงในเพลย์ลิสต์นี้อยู่ในตะกร้าแล้ว กรุณาตรวจสอบตะกร้าก่อนเพิ่ม", "error");
+        return;
+      }
+    }
+
     activeOrderId = null;
     activeOrderKey = null;
-    state.cart.push({
+    const entry = {
       id: String(song.id),
       song_name: String(song.song_name || ""),
       cover_url: String(song.cover_url || ""),
@@ -80,7 +123,14 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       price: Math.max(0, Number(song.price) || 0),
       kind,
       quantity: 1
-    });
+    };
+    if (kind === "playlist") {
+      entry.song_ids = Array.isArray(song.song_ids) ? song.song_ids.map(String) : [];
+      entry.songs = Array.isArray(song.songs)
+        ? song.songs.filter(s => s && s.id).map(s => ({ id: String(s.id), song_name: String(s.song_name || "เพลง") }))
+        : [];
+    }
+    state.cart.push(entry);
     showToast("เพิ่มลงตะกร้าแล้ว", "success");
     saveCart();
   }
@@ -112,17 +162,31 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       return;
     }
 
-    itemsEl.innerHTML = state.cart.map(item => `
+    itemsEl.innerHTML = state.cart.map(item => {
+      const isPlaylist = item.kind === "playlist";
+      const songCount = isPlaylist ? (item.songs || []).length || (item.song_ids || []).length : 0;
+      const metaText = isPlaylist
+        ? `เพลย์ลิสต์ · ${songCount} เพลง · ${formatPrice(item.price)}`
+        : `${escapeHtml(item.dj_name || "เพลง Remix")} · ${formatPrice(item.price)} / เพลง`;
+      const viewSongsBtn = (isPlaylist && (item.songs || []).length)
+        ? `<button class="cart-item-viewsongs" type="button" data-cart-view-songs="${escapeHtml(item.id)}">ดูรายการเพลงในเพลย์ลิสต์ (${songCount})</button>
+           <div class="cart-item-songs" id="cartSongs-${escapeHtml(item.id)}">
+             ${item.songs.map(s => `<div class="cart-item-songs-row">🎵 ${escapeHtml(s.song_name)}</div>`).join("")}
+           </div>`
+        : "";
+      return `
       <div class="cart-item" data-cart-item="${escapeHtml(item.id)}">
         <img class="cart-item-cover" src="${escapeHtml(item.cover_url)}" alt="">
         <div class="cart-item-info">
           <div class="cart-item-name">${escapeHtml(item.song_name)}</div>
-          <div class="cart-item-meta">${item.kind === "playlist" ? "เพลย์ลิสต์" : escapeHtml(item.dj_name || "เพลง Remix")} · ${formatPrice(item.price)}${item.kind === "playlist" ? "" : " / เพลง"}</div>
+          <div class="cart-item-meta">${metaText}</div>
         </div>
         <div class="cart-item-total">${formatPrice(item.price * item.quantity)}</div>
         <button class="cart-remove" type="button" data-cart-remove="${escapeHtml(item.id)}">ลบ</button>
+        ${viewSongsBtn}
       </div>
-    `).join("");
+    `;
+    }).join("");
 
     if (summaryEl) summaryEl.hidden = false;
     const quantityEl = document.getElementById("cartTotalQuantity");
@@ -345,7 +409,8 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       title: String(playlist.playlist_name || playlist.name || "เพลย์ลิสต์"),
       price: Number(playlist.price),
       quantity: 1,
-      song_ids: songs.map(s => s.song_id) // เก็บ snapshot รายชื่อเพลงในเพลย์ลิสต์ไว้ ใช้อ้างอิงฝั่ง Admin (ไม่กระทบระบบเดิม)
+      song_ids: songs.map(s => s.song_id), // เก็บ snapshot ไอดีเพลงในเพลย์ลิสต์ไว้ ใช้อ้างอิงฝั่ง Admin (ไม่กระทบระบบเดิม)
+      song_titles: songs.map(s => s.title) // เก็บ snapshot ชื่อเพลงคู่กัน ใช้แสดงในใบเสร็จ/ข้อความ WhatsApp เท่านั้น ไม่ใช้คิดราคา
     }));
     const songLineItems = singleSongItems.map(item => ({ kind: "song", ...item }));
     const items = [...songLineItems, ...playlistLineItems];
@@ -363,11 +428,20 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
   }
 
   function buildAdminWhatsAppText(order, receiptNumber, storeName) {
+    // เพลย์ลิสต์ (ทั้งกรณีสั่งซื้อยกเพลย์ลิสต์ล้วนๆ และกรณีผสมกับเพลงเดี่ยว) แสดงรายชื่อเพลงข้างในไว้ให้
+    // ลูกค้าตรวจสอบเท่านั้น — ราคาที่คิดเงินยังคงเป็นราคาเหมาเพลย์ลิสต์ ไม่บวกราคาเพลงย่อยซ้ำ
     const lines = order.order_type === "playlist"
-      ? [`1. เพลย์ลิสต์: ${order.playlist_name || "ไม่ระบุชื่อ"} — ${formatPrice(order.total)}`]
-      : order.items.map((item, index) =>
-          `${index + 1}. ${item.title} — ${formatPrice(item.price)}`
-        );
+      ? [
+          `1. เพลย์ลิสต์: ${order.playlist_name || "ไม่ระบุชื่อ"} — ${formatPrice(order.total)}`,
+          ...(order.items || []).map(item => `   • ${item.title}`)
+        ]
+      : order.items.flatMap((item, index) => {
+          if (item.kind === "playlist") {
+            const nested = (item.song_titles || []).map(title => `   • ${title}`);
+            return [`${index + 1}. 🎶 เพลย์ลิสต์: ${item.title} — ${formatPrice(item.price)}`, ...nested];
+          }
+          return [`${index + 1}. ${item.title} — ${formatPrice(item.price)}`];
+        });
     return [
       `สวัสดีครับ มี Order ใหม่จาก ${storeName || "Music Store"}`,
       "",
@@ -504,6 +578,15 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       const button = event.target.closest("button");
       if (!button) return;
       if (button.matches("[data-cart-continue]")) { closeCart(); return; }
+      if (button.dataset.cartViewSongs) {
+        const list = document.getElementById(`cartSongs-${button.dataset.cartViewSongs}`);
+        if (list) {
+          const willOpen = !list.classList.contains("is-open");
+          list.classList.toggle("is-open", willOpen);
+          button.textContent = button.textContent.replace(/^(ดู|ซ่อน)/, willOpen ? "ซ่อน" : "ดู");
+        }
+        return;
+      }
       if (button.dataset.cartRemove) {
         activeOrderId = null;
         activeOrderKey = null;
