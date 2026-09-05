@@ -1,6 +1,6 @@
 // app-cart.js — ระบบตะกร้าสินค้า
 // ===================================================
-import { db } from "./firebase-init.js";
+import { db } from "./firebase-init.js?v=20260905-fix1";
 import {
   collection, doc, query, where, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -448,6 +448,7 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
         return builtOrder;
       });
     } catch (err) {
+      console.error("checkoutCart error:", err);
       setCheckoutFeedback("บันทึก Order ไม่สำเร็จ: " + (err?.message || err));
       submitting = false;
       if (btn) { btn.disabled = false; btn.textContent = "ยืนยันสั่งซื้อ"; }
