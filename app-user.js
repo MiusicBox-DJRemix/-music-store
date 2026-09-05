@@ -48,16 +48,24 @@ function loadCart() {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) throw new Error("cart is not an array");
-    STATE.cart = parsed
+    const uniqueItems = new Map();
+    parsed
       .filter(item => item && item.id && item.song_name)
-      .map(item => ({
-        id: String(item.id),
-        song_name: String(item.song_name),
-        cover_url: String(item.cover_url || ""),
-        dj_name: String(item.dj_name || ""),
-        price: Math.max(0, Number(item.price) || 0),
-        quantity: Math.min(99, Math.max(1, Math.floor(Number(item.quantity) || 1)))
-      }));
+      .forEach(item => {
+        const id = String(item.id);
+        // Cart items are digital songs: one song can only appear once.
+        if (!uniqueItems.has(id)) {
+          uniqueItems.set(id, {
+            id,
+            song_name: String(item.song_name),
+            cover_url: String(item.cover_url || ""),
+            dj_name: String(item.dj_name || ""),
+            price: Math.max(0, Number(item.price) || 0),
+            quantity: 1
+          });
+        }
+      });
+    STATE.cart = Array.from(uniqueItems.values());
   } catch (_) {
     // A damaged cart must never prevent the store from loading.
     STATE.cart = [];
@@ -85,29 +93,20 @@ function cartTotal() {
 
 function addToCart(song) {
   if (!song || !song.id) return;
-  const existing = STATE.cart.find(item => item.id === song.id);
+  const existing = STATE.cart.find(item => item.id === String(song.id));
   if (existing) {
-    existing.quantity = Math.min(99, existing.quantity + 1);
-    showToast(`เพิ่ม "${song.song_name}" อีก 1 รายการแล้ว`, "success");
-  } else {
-    STATE.cart.push({
-      id: String(song.id),
-      song_name: String(song.song_name || ""),
-      cover_url: String(song.cover_url || ""),
-      dj_name: String(song.dj_name || ""),
-      price: Math.max(0, Number(song.price) || 0),
-      quantity: 1
-    });
-    showToast("เพิ่มเพลงลงตะกร้าแล้ว", "success");
+    showToast("เพลงนี้อยู่ในตะกร้าแล้ว", "error");
+    return;
   }
-  saveCart();
-}
-
-function changeCartQuantity(songId, delta) {
-  const item = STATE.cart.find(entry => entry.id === songId);
-  if (!item) return;
-  item.quantity = Math.min(99, Math.max(0, item.quantity + delta));
-  if (item.quantity === 0) STATE.cart = STATE.cart.filter(entry => entry.id !== songId);
+  STATE.cart.push({
+    id: String(song.id),
+    song_name: String(song.song_name || ""),
+    cover_url: String(song.cover_url || ""),
+    dj_name: String(song.dj_name || ""),
+    price: Math.max(0, Number(song.price) || 0),
+    quantity: 1
+  });
+  showToast("เพิ่มเพลงลงตะกร้าแล้ว", "success");
   saveCart();
 }
 
@@ -144,11 +143,6 @@ function renderCart() {
       <div class="cart-item-info">
         <div class="cart-item-name">${escapeHtml(item.song_name)}</div>
         <div class="cart-item-meta">${escapeHtml(item.dj_name || "เพลง Remix")} · ${formatPrice(item.price)} / เพลง</div>
-        <div class="cart-quantity" aria-label="จำนวน ${escapeHtml(item.song_name)}">
-          <button type="button" data-cart-minus="${escapeHtml(item.id)}" aria-label="ลดจำนวน">−</button>
-          <strong>${item.quantity}</strong>
-          <button type="button" data-cart-plus="${escapeHtml(item.id)}" aria-label="เพิ่มจำนวน">+</button>
-        </div>
       </div>
       <div class="cart-item-total">${formatPrice(item.price * item.quantity)}</div>
       <button class="cart-remove" type="button" data-cart-remove="${escapeHtml(item.id)}">ลบ</button>
@@ -183,7 +177,7 @@ function checkoutCart() {
     return;
   }
   const lines = STATE.cart.map((item, index) =>
-    `${index + 1}. ${item.song_name} x${item.quantity} — ${formatPrice(item.price * item.quantity)}`
+    `${index + 1}. ${item.song_name} — ${formatPrice(item.price)}`
   );
   const text = [
     "สวัสดีครับ ต้องการสั่งซื้อเพลงดังต่อไปนี้",
@@ -215,8 +209,6 @@ function bindCartEvents() {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.matches("[data-cart-continue]")) { closeCart(); return; }
-    if (button.dataset.cartMinus) changeCartQuantity(button.dataset.cartMinus, -1);
-    if (button.dataset.cartPlus) changeCartQuantity(button.dataset.cartPlus, 1);
     if (button.dataset.cartRemove) removeFromCart(button.dataset.cartRemove);
   });
   document.getElementById("clearCartBtn")?.addEventListener("click", () => {
