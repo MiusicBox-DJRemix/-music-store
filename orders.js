@@ -2,7 +2,7 @@
 // ใช้ collection "songs" ที่มีอยู่แล้วเป็นแหล่งข้อมูลเพลง/ราคา
 // และสร้าง collection ใหม่ชื่อ "orders" สำหรับเก็บออเดอร์
 // ===================================================
-import { db } from "./firebase-init.js";
+import { db } from "./firebase-init.js?v=20260905-fix1";
 import {
   collection, getDocs, getDoc, setDoc, query, orderBy, where, doc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
