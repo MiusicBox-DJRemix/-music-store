@@ -710,20 +710,11 @@ function buildReceiptCopyText(order, receiptNumber, total, playlistName) {
   const dateText = Number.isNaN(date.getTime())
     ? "-"
     : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
-  // เพลย์ลิสต์ (ล้วนๆ หรือผสมกับเพลงเดี่ยว) แสดงรายชื่อเพลงข้างในให้ตรวจสอบเท่านั้น
-  // ไม่นำราคาเพลงย่อยมาบวกซ้ำกับราคาเหมาเพลย์ลิสต์
   const itemLines = order.order_type === "playlist"
-    ? [
-        `1. เพลย์ลิสต์: ${playlistName} — ${formatLAK(total)}`,
-        ...(order.items || []).map(item => `   • ${item.title || "เพลง"}`)
-      ]
-    : (order.items || []).flatMap((item, index) => {
-        if (item.kind === "playlist") {
-          const nested = (item.song_titles || []).map(title => `   • ${title}`);
-          return [`${index + 1}. 🎶 เพลย์ลิสต์: ${item.title || "เพลย์ลิสต์"} — ${formatLAK(item.price)}`, ...nested];
-        }
-        return [`${index + 1}. ${item.title || "เพลง"} — ${formatLAK(item.price)}`];
-      });
+    ? [`1. เพลย์ลิสต์: ${playlistName} — ${formatLAK(total)}`]
+    : (order.items || []).map((item, index) =>
+        `${index + 1}. ${item.title || "เพลง"} — ${formatLAK(item.price)}`
+      );
   return [
     order.store_name || state.storeName || "Music Store",
     "ใบเสร็จรับเงิน / รายละเอียด Order",
@@ -781,36 +772,19 @@ function openReceipt(orderId) {
     : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
   const receiptNumber = order.receipt_number || getReceiptNumber(order.id, order.created_at);
 
-  // ใต้ Playlist แสดงรายชื่อเพลงทั้งหมดไว้ให้ลูกค้าตรวจสอบ (ไม่คิดราคาแยก คิดเฉพาะราคาเหมา Playlist)
   const itemRows = order.order_type === "playlist"
     ? `
       <div class="receipt-line">
         <div><strong>🎶 ${escapeHtml(playlistName)}</strong><small>ยกเพลย์ลิสต์ · ${(order.items || []).length} เพลง</small></div>
         <strong>${formatLAK(total)}</strong>
       </div>
-      <div class="receipt-sublist">
-        ${(order.items || []).map(item => `<div class="receipt-subline">• ${escapeHtml(item.title || "เพลง")}</div>`).join("")}
-      </div>
     `
-    : (order.items || []).map((item) => {
-        if (item.kind === "playlist") {
-          const songCount = (item.song_titles || item.song_ids || []).length;
-          const nested = (item.song_titles || []).map(title => `<div class="receipt-subline">• ${escapeHtml(title)}</div>`).join("");
-          return `
-            <div class="receipt-line">
-              <div><strong>🎶 ${escapeHtml(item.title || "เพลย์ลิสต์")}</strong><small>ยกเพลย์ลิสต์ · ${songCount} เพลง</small></div>
-              <strong>${formatLAK(item.price)}</strong>
-            </div>
-            <div class="receipt-sublist">${nested}</div>
-          `;
-        }
-        return `
-          <div class="receipt-line">
-            <div><strong>${escapeHtml(item.title || "เพลง")}</strong></div>
-            <strong>${formatLAK(item.price)}</strong>
-          </div>
-        `;
-      }).join("");
+    : (order.items || []).map((item) => `
+      <div class="receipt-line">
+        <div><strong>${escapeHtml(item.title || "เพลง")}</strong></div>
+        <strong>${formatLAK(item.price)}</strong>
+      </div>
+    `).join("");
 
   const content = document.getElementById("receiptContent");
   if (!content) return;
@@ -911,7 +885,9 @@ async function openFullFilesModal(orderId) {
       </div>`
     : order.zip_status === "failed"
       ? `<div class="receipt-line" style="color:var(--danger);"><div><strong>⚠️ ยังสร้าง ZIP ไม่สำเร็จ</strong><small>${escapeHtml(order.zip_error || "ไม่ทราบสาเหตุ")}</small></div></div>`
-      : "";
+      : order.zip_status === "preparing"
+        ? `<div class="receipt-line" style="color:var(--accent);"><div><strong>⏳ กำลังสร้าง ZIP...</strong><small>ระบบกำลังดึงและบีบอัดไฟล์ WAV อยู่ กรุณารอสักครู่แล้วเปิดหน้าต่างนี้ใหม่</small></div></div>`
+        : "";
   content.innerHTML = zipRow + (rows.join("") || `<div class="empty-state">ไม่มีรายการเพลงในออเดอร์นี้</div>`);
 }
 
