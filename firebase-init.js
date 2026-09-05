@@ -46,7 +46,10 @@ export async function uploadToCloudinary(file, onProgress) {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
     xhr.upload.onprogress = (e) => {
-      if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      if (onProgress && e.lengthComputable) {
+        // ส่งทั้งเปอร์เซ็นต์และจำนวนไบต์จริง (loaded/total) ให้ผู้เรียกใช้แสดงผลแบบ "2 MB / 6 MB" แบบเรียลไทม์ได้
+        onProgress(Math.round((e.loaded / e.total) * 100), e.loaded, e.total);
+      }
     };
     xhr.onload = () => {
       try {
