@@ -9,7 +9,7 @@ import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut,
   reauthenticateWithCredential, EmailAuthProvider, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initOrdersView } from "./orders.js?v=20260904-orderzip";
+import { initOrdersView } from "./orders.js?v=20260905-cart-order-copy";
 import { resolveCurrentAdminRole, initAdminsView } from "./admin-roles.js";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
