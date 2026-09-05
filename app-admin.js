@@ -481,7 +481,9 @@ document.getElementById("songSaveBtn").addEventListener("click", async function 
 // เช็คว่าเพลงนี้เคยถูกสั่งซื้อ (มีอยู่ใน Order เก่า) หรือไม่ — ใช้ก่อนลบเพลงจริง
 async function songHasOrders(songId) {
   const snap = await getDocs(collection(db, "orders"));
-  return snap.docs.some(d => (d.data().items || []).some(item => item.song_id === songId));
+  return snap.docs.some(d => (d.data().items || []).some(item =>
+    item.song_id === songId || (Array.isArray(item.song_ids) && item.song_ids.includes(songId))
+  ));
 }
 
 async function confirmDeleteSong(id) {
