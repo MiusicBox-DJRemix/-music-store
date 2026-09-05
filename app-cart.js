@@ -2,7 +2,7 @@
 // ===================================================
 import { db } from "./firebase-init.js";
 import {
-  collection, doc, getDoc, getDocs, query, setDoc, where
+  collection, doc, query, where, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CART_STORAGE_KEY = "music_store_cart_v1";
@@ -63,14 +63,8 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
   function addToCart(song) {
     if (!song || !song.id) return;
     const kind = song.kind === "playlist" ? "playlist" : "song";
-    if (state.cart.length > 0 && state.cart.some(item => item.kind !== kind)) {
-      showToast("เพลงเดี่ยวและเพลย์ลิสต์ต้องสั่งแยก Order กัน", "error");
-      return;
-    }
-    if (kind === "playlist" && state.cart.length > 0) {
-      showToast("เพลย์ลิสต์ต้องสั่งทีละชุดต่อหนึ่ง Order", "error");
-      return;
-    }
+    // หมายเหตุ: เดิมมีข้อจำกัดห้ามผสมเพลงเดี่ยว/เพลย์ลิสต์ และห้ามเพิ่มเพลย์ลิสต์เกิน 1 รายการ
+    // ตอนนี้รองรับตะกร้าที่มีเพลงหลายเพลง + เพลย์ลิสต์หลายรายการรวมกันแล้ว (ดู resolveCartFromDatabase/checkoutCart)
     const existing = state.cart.find(item => item.id === String(song.id));
     if (existing) {
       showToast("รายการนี้อยู่ในตะกร้าแล้ว", "error");
@@ -245,70 +239,118 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
     try { sessionStorage.removeItem(CHECKOUT_ORDER_KEY); } catch (_) {}
   }
 
-  async function resolveCartFromDatabase() {
-    const cartItems = [];
-    let kind = null;
-    let playlist = null;
-    if (state.cart.filter(item => item.kind === "playlist").length > 1) {
-      throw new Error("เพลย์ลิสต์ต้องสั่งทีละชุดต่อหนึ่ง Order");
+  /*
+   * ตรวจสอบรายการในตะกร้า + คำนวณราคาจากฐานข้อมูลจริง (ไม่เชื่อราคาที่ cache ไว้ในตะกร้า)
+   * รับ `transaction` ของ Firestore เข้ามา เพื่อให้การอ่านทั้งหมดอยู่ใน Transaction เดียวกับ
+   * ตอนเขียน Order — ถ้าขั้นตอนใดใน Transaction throw ระบบจะไม่เขียน Order เลย (rollback อัตโนมัติ)
+   *
+   * รองรับ 3 รูปแบบของตะกร้า:
+   *  1) มีแต่เพลงเดี่ยว                      -> order_type "single"   (พฤติกรรมเดิมทุกประการ)
+   *  2) มีเพลย์ลิสต์เดียว ไม่มีเพลงเดี่ยวปน     -> order_type "playlist" (พฤติกรรมเดิมทุกประการ)
+   *  3) เพลงเดี่ยว+เพลย์ลิสต์ผสมกัน หรือมีเพลย์ลิสต์มากกว่า 1 รายการ -> order_type "mixed" (ใหม่)
+   *     กรณีนี้ 1 รายการในตะกร้า = 1 Order Item เสมอ (เพลย์ลิสต์ไม่ถูกขยายเป็นหลายเพลง)
+   *     เช่น เพลง 3 เพลง + เพลย์ลิสต์ 2 รายการ -> items.length === 5
+   */
+  async function resolveCartFromDatabase(transaction) {
+    const songEntries = state.cart.filter(item => item.kind !== "playlist");
+    const playlistEntries = state.cart.filter(item => item.kind === "playlist");
+
+    // ---- ตรวจสอบ/ดึงราคาล่าสุดของเพลงเดี่ยวที่เพิ่มเองในตะกร้า ----
+    const singleSongItems = [];
+    for (const cartItem of songEntries) {
+      const songSnap = await transaction.get(doc(db, "songs", String(cartItem.id)));
+      if (!songSnap.exists()) throw new Error(`ไม่พบเพลง "${cartItem.song_name}" ในฐานข้อมูล`);
+      const song = songSnap.data();
+      if (song.status === "hidden") throw new Error(`เพลง "${song.song_name || cartItem.song_name}" ปิดการขายแล้ว`);
+      const price = Number(song.price);
+      if (!Number.isFinite(price) || price < 0) throw new Error(`ราคาเพลง "${song.song_name || cartItem.song_name}" ไม่ถูกต้อง`);
+      singleSongItems.push({
+        song_id: songSnap.id,
+        title: String(song.song_name || cartItem.song_name || "เพลง"),
+        price,
+        quantity: 1
+      });
     }
 
-    for (const cartItem of state.cart) {
-      const itemKind = cartItem.kind === "playlist" ? "playlist" : "song";
-      if (kind && kind !== itemKind) {
-        throw new Error("เพลงเดี่ยวและเพลย์ลิสต์ต้องสั่งแยก Order กัน");
-      }
-      kind = itemKind;
-
-      if (itemKind === "song") {
-        const songSnap = await getDoc(doc(db, "songs", String(cartItem.id)));
-        if (!songSnap.exists()) throw new Error(`ไม่พบเพลง "${cartItem.song_name}" ในฐานข้อมูล`);
-        const song = songSnap.data();
-        if (song.status === "hidden") throw new Error(`เพลง "${song.song_name || cartItem.song_name}" ปิดการขายแล้ว`);
-        const price = Number(song.price);
-        if (!Number.isFinite(price) || price < 0) throw new Error(`ราคาเพลง "${song.song_name || cartItem.song_name}" ไม่ถูกต้อง`);
-        cartItems.push({
-          song_id: songSnap.id,
-          title: String(song.song_name || cartItem.song_name || "เพลง"),
-          price,
-          quantity: 1
-        });
-        continue;
-      }
-
+    // ---- ตรวจสอบ/ดึงราคาล่าสุดของเพลย์ลิสต์แต่ละรายการในตะกร้า ----
+    const playlistResolutions = [];
+    for (const cartItem of playlistEntries) {
       const playlistId = String(cartItem.id).replace(/^playlist:/, "");
-      const playlistSnap = await getDoc(doc(db, "playlists", playlistId));
+      const playlistSnap = await transaction.get(doc(db, "playlists", playlistId));
       if (!playlistSnap.exists()) throw new Error(`ไม่พบเพลย์ลิสต์ "${cartItem.song_name}" ในฐานข้อมูล`);
-      playlist = { id: playlistSnap.id, ...playlistSnap.data() };
+      const playlist = { id: playlistSnap.id, ...playlistSnap.data() };
       const playlistPrice = Number(playlist.price);
       if (!Number.isFinite(playlistPrice) || playlistPrice <= 0) {
         throw new Error(`เพลย์ลิสต์ "${playlist.playlist_name || cartItem.song_name}" ยังไม่มีราคาขาย`);
       }
 
-      const songsSnap = await getDocs(query(collection(db, "songs"), where("playlist_id", "==", playlistId)));
+      const songsSnap = await transaction.get(query(collection(db, "songs"), where("playlist_id", "==", playlistId)));
+      const activeSongs = [];
       songsSnap.docs.forEach(songDoc => {
         const song = songDoc.data();
         if (song.status === "hidden") return;
-        cartItems.push({
+        activeSongs.push({
           song_id: songDoc.id,
           title: String(song.song_name || "เพลง"),
-          price: Number.isFinite(Number(song.price)) ? Number(song.price) : 0,
-          quantity: 1
+          price: Number.isFinite(Number(song.price)) ? Number(song.price) : 0
         });
       });
-      if (cartItems.length === 0) throw new Error("เพลย์ลิสต์นี้ยังไม่มีเพลงที่เปิดขาย");
+      if (activeSongs.length === 0) {
+        throw new Error(`เพลย์ลิสต์ "${playlist.playlist_name || cartItem.song_name}" ยังไม่มีเพลงที่เปิดขาย`);
+      }
+      playlistResolutions.push({ playlist, songs: activeSongs });
     }
 
-    const settingsSnap = await getDoc(doc(db, "settings", "main"));
+    const settingsSnap = await transaction.get(doc(db, "settings", "main"));
     const settings = settingsSnap.exists() ? settingsSnap.data() : {};
-    const total = kind === "playlist" ? Number(playlist.price) : cartItems.reduce((sum, item) => sum + item.price, 0);
+
+    // ===== กรณีเดิม (1): มีเพลย์ลิสต์เดียวล้วนๆ ไม่มีเพลงเดี่ยวปน — คงพฤติกรรมเดิมทุกประการ =====
+    if (playlistResolutions.length === 1 && singleSongItems.length === 0) {
+      const { playlist, songs } = playlistResolutions[0];
+      return {
+        items: songs.map(s => ({ song_id: s.song_id, title: s.title, price: s.price, quantity: 1 })),
+        total: Number(playlist.price),
+        orderType: "playlist",
+        playlist,
+        playlistIds: [playlist.id],
+        settings
+      };
+    }
+
+    // ===== กรณีเดิม (2): มีแต่เพลงเดี่ยว ไม่มีเพลย์ลิสต์เลย — คงพฤติกรรมเดิมทุกประการ =====
+    if (playlistResolutions.length === 0) {
+      const total = singleSongItems.reduce((sum, item) => sum + item.price, 0);
+      if (!Number.isFinite(total) || total < 0) throw new Error("คำนวณยอดรวมจากฐานข้อมูลไม่สำเร็จ");
+      return {
+        items: singleSongItems,
+        total,
+        orderType: "single",
+        playlist: null,
+        playlistIds: [],
+        settings
+      };
+    }
+
+    // ===== กรณีใหม่ (3): เพลย์ลิสต์หลายรายการ และ/หรือ เพลงเดี่ยวปนกับเพลย์ลิสต์ =====
+    const playlistLineItems = playlistResolutions.map(({ playlist, songs }) => ({
+      kind: "playlist",
+      playlist_id: playlist.id,
+      title: String(playlist.playlist_name || playlist.name || "เพลย์ลิสต์"),
+      price: Number(playlist.price),
+      quantity: 1,
+      song_ids: songs.map(s => s.song_id) // เก็บ snapshot รายชื่อเพลงในเพลย์ลิสต์ไว้ ใช้อ้างอิงฝั่ง Admin (ไม่กระทบระบบเดิม)
+    }));
+    const songLineItems = singleSongItems.map(item => ({ kind: "song", ...item }));
+    const items = [...songLineItems, ...playlistLineItems];
+    const total = items.reduce((sum, item) => sum + item.price, 0);
     if (!Number.isFinite(total) || total < 0) throw new Error("คำนวณยอดรวมจากฐานข้อมูลไม่สำเร็จ");
 
     return {
-      items: cartItems,
+      items,
       total,
-      orderType: kind === "playlist" ? "playlist" : "single",
-      playlist,
+      orderType: "mixed",
+      playlist: null,
+      playlistIds: playlistResolutions.map(r => r.playlist.id),
       settings
     };
   }
@@ -329,7 +371,11 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       "🛒 รายการสั่งซื้อ",
       ...lines,
       "",
-      `🎵 จำนวนทั้งหมด: ${order.items.length} เพลง${order.order_type === "playlist" ? "ในเพลย์ลิสต์" : ""}`,
+      `🎵 จำนวนทั้งหมด: ${order.items.length} ${
+        order.order_type === "playlist" ? "เพลงในเพลย์ลิสต์"
+        : order.order_type === "mixed" ? "รายการ (เพลง/เพลย์ลิสต์)"
+        : "เพลง"
+      }`,
       `💰 ราคารวม: ${formatPrice(order.total)}`,
       "",
       "สถานะ: รอตรวจสอบการโอน"
@@ -356,59 +402,84 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
     if (btn) { btn.disabled = true; btn.textContent = "กำลังตรวจสอบและบันทึก..."; }
     setCheckoutFeedback("กำลังตรวจสอบรายการและราคาจากฐานข้อมูล...", "success");
 
+    const createdAt = new Date().toISOString();
+    const checkoutKey = getCheckoutKey(customerName, whatsapp);
+    const reusableOrderId = activeOrderKey === checkoutKey
+      ? activeOrderId
+      : getStoredOrderId(checkoutKey);
+    // ใช้ doc() สร้าง reference/ID ไว้ล่วงหน้า (ไม่แตะ Firestore จริง) เพื่อใช้เป็น orderRef ใน Transaction
+    const orderRef = reusableOrderId
+      ? doc(db, "orders", reusableOrderId)
+      : doc(collection(db, "orders"));
+    const receiptNumber = getReceiptNumber(orderRef.id, createdAt);
+
+    let order = null;
+    let resolvedSettings = {};
     try {
-      const resolved = await resolveCartFromDatabase();
-      const createdAt = new Date().toISOString();
-      const checkoutKey = getCheckoutKey(customerName, whatsapp);
-      const reusableOrderId = activeOrderKey === checkoutKey
-        ? activeOrderId
-        : getStoredOrderId(checkoutKey);
-      const orderRef = reusableOrderId
-        ? doc(db, "orders", reusableOrderId)
-        : doc(collection(db, "orders"));
-      activeOrderId = orderRef.id;
-      activeOrderKey = checkoutKey;
-      storeOrderId(checkoutKey, orderRef.id);
-      const receiptNumber = getReceiptNumber(orderRef.id, createdAt);
-      const order = {
-        customer_name: customerName,
-        whatsapp,
-        items: resolved.items,
-        total: resolved.total,
-        order_type: resolved.orderType,
-        playlist_id: resolved.playlist?.id || null,
-        playlist_name: resolved.playlist?.playlist_name || null,
-        store_name: resolved.settings.website_name || "Music Store",
-        status: "pending_verify",
-        created_at: createdAt,
-        receipt_number: receiptNumber
-      };
-      await setDoc(orderRef, order);
+      // ---- Firestore Transaction ----
+      // ครอบทั้ง "ตรวจสอบรายการในตะกร้า + คำนวณราคาจากฐานข้อมูล" และ "สร้าง Order เดียว" ไว้ด้วยกัน
+      // ถ้าขั้นตอนตรวจสอบ (resolveCartFromDatabase) throw เมื่อไหร่ — เช่น เพลงถูกปิดขาย/ราคาไม่ถูกต้อง/
+      // เพลย์ลิสต์ไม่มีเพลงเหลือขาย — transaction จะไม่ commit และไม่มีการเขียน Order ลง Firestore เลย
+      // (rollback อัตโนมัติของ Firestore) ตะกร้าฝั่ง client ก็จะไม่ถูกล้างด้วยเช่นกัน
+      order = await runTransaction(db, async (transaction) => {
+        const resolved = await resolveCartFromDatabase(transaction);
+        resolvedSettings = resolved.settings || {};
 
-      state.cart = [];
-      try { localStorage.removeItem(CART_STORAGE_KEY); } catch (_) {}
-      activeOrderId = null;
-      activeOrderKey = null;
-      clearStoredOrderId();
-      renderCart();
-      if (nameInput) nameInput.value = "";
-      if (whatsappInput) whatsappInput.value = "";
-      setCheckoutFeedback(`บันทึก Order ${receiptNumber} สำเร็จแล้ว`, "success");
+        const builtOrder = {
+          customer_name: customerName,
+          whatsapp,
+          items: resolved.items, // Order Items ทั้งหมดของตะกร้า ณ ขณะสั่งซื้อ
+          total: resolved.total,
+          order_type: resolved.orderType, // "single" | "playlist" | "mixed"
+          playlist_id: resolved.orderType === "playlist" ? (resolved.playlist?.id || null) : null,
+          playlist_name: resolved.orderType === "playlist" ? (resolved.playlist?.playlist_name || null) : null,
+          store_name: resolved.settings.website_name || "Music Store",
+          status: "pending_verify",
+          created_at: createdAt,
+          receipt_number: receiptNumber
+        };
+        // playlist_ids เป็นฟิลด์เสริมสำหรับ Order แบบผสม (เพลง+เพลย์ลิสต์ หรือหลายเพลย์ลิสต์) เท่านั้น
+        // ระบบเดิม (resolveOrderSongs ใน orders.js) อ่านฟิลด์นี้อยู่แล้วสำหรับสร้าง ZIP ดาวน์โหลด จึงไม่ต้องแก้ไฟล์นั้นเพิ่ม
+        if (resolved.orderType === "mixed") {
+          builtOrder.playlist_ids = resolved.playlistIds;
+        }
 
-      const number = String(resolved.settings.whatsapp_number || "").replace(/[^0-9]/g, "");
-      if (number) {
-        const text = buildAdminWhatsAppText(order, receiptNumber, order.store_name);
-        window.open(buildWhatsAppLink(number, text), "_blank", "noopener");
-      } else {
-        showToast("บันทึก Order แล้ว แต่ร้านยังไม่ได้ตั้งค่าเบอร์ WhatsApp", "error");
-      }
-      setTimeout(closeCheckout, 900);
+        transaction.set(orderRef, builtOrder);
+        return builtOrder;
+      });
     } catch (err) {
       setCheckoutFeedback("บันทึก Order ไม่สำเร็จ: " + (err?.message || err));
-    } finally {
       submitting = false;
       if (btn) { btn.disabled = false; btn.textContent = "ยืนยันสั่งซื้อ"; }
+      return;
     }
+
+    // มาถึงจุดนี้แปลว่า Transaction commit สำเร็จแล้ว — ล้างเฉพาะรายการที่สั่งซื้อสำเร็จออกจากตะกร้า
+    activeOrderId = orderRef.id;
+    activeOrderKey = checkoutKey;
+    storeOrderId(checkoutKey, orderRef.id);
+
+    state.cart = [];
+    try { localStorage.removeItem(CART_STORAGE_KEY); } catch (_) {}
+    activeOrderId = null;
+    activeOrderKey = null;
+    clearStoredOrderId();
+    renderCart();
+    if (nameInput) nameInput.value = "";
+    if (whatsappInput) whatsappInput.value = "";
+    setCheckoutFeedback(`บันทึก Order ${receiptNumber} สำเร็จแล้ว`, "success");
+
+    const number = String(resolvedSettings.whatsapp_number || "").replace(/[^0-9]/g, "");
+    if (number) {
+      const text = buildAdminWhatsAppText(order, receiptNumber, order.store_name);
+      window.open(buildWhatsAppLink(number, text), "_blank", "noopener");
+    } else {
+      showToast("บันทึก Order แล้ว แต่ร้านยังไม่ได้ตั้งค่าเบอร์ WhatsApp", "error");
+    }
+    setTimeout(closeCheckout, 900);
+
+    submitting = false;
+    if (btn) { btn.disabled = false; btn.textContent = "ยืนยันสั่งซื้อ"; }
   }
 
   function bindCartEvents() {
