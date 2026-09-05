@@ -20,8 +20,17 @@ let pendingPlaylistCoverFile = null, existingPlaylistCoverUrl = "";
 let pendingFullSongFile = null, existingFullFileUrl = "";
 let confirmAction = null;
 
-// จำกัดขนาดไฟล์ WAV สูงสุด (ปรับได้ตามแผน Cloudinary — ฟรีแพลนอัปโหลดสูงสุดไฟล์ละ 100MB)
-const MAX_FULL_WAV_SIZE_MB = 100;
+// จำกัดขนาดไฟล์เพลงเต็มสูงสุด (WAV หรือ MP3) — ปรับได้ตามแผน Cloudinary (ฟรีแพลนอัปโหลดสูงสุดไฟล์ละ 100MB)
+const MAX_FULL_SONG_SIZE_MB = 100;
+// นามสกุล/MIME type ที่อนุญาตสำหรับ "ไฟล์เพลงเต็ม" (ไฟล์จริงที่ส่งลูกค้าหลังชำระเงิน) — รองรับทั้ง WAV และ MP3
+const FULL_SONG_EXT_RE = /\.(wav|mp3)$/i;
+const FULL_SONG_MIME_OK = new Set([
+  "audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave", "audio/x-pn-wav",
+  "audio/mpeg", "audio/mp3", "audio/mpeg3", "audio/x-mpeg-3"
+]);
+function isAllowedFullSongFile(f) {
+  return FULL_SONG_EXT_RE.test(f.name) || FULL_SONG_MIME_OK.has(f.type);
+}
 function formatFileSize(bytes) {
   if (!bytes && bytes !== 0) return "";
   const mb = bytes / (1024 * 1024);
@@ -332,7 +341,7 @@ function resetSongForm() {
   document.getElementById("coverFilePicker").textContent = "🖼️ แตะเพื่อเลือกรูปปก";
   document.getElementById("coverFilePicker").className = "file-picker";
   document.getElementById("fullSongFileInput").value = "";
-  document.getElementById("fullSongFilePicker").textContent = "🔒 แตะเพื่อเลือกไฟล์ WAV เต็ม";
+  document.getElementById("fullSongFilePicker").textContent = "🔒 แตะเพื่อเลือกไฟล์เพลงเต็ม (WAV/MP3)";
   document.getElementById("fullSongFilePicker").className = "file-picker";
   document.getElementById("fullSongFileMeta").style.display = "none";
   document.getElementById("fullSongFileMeta").textContent = "";
@@ -389,17 +398,16 @@ document.getElementById("fullSongFileInput").addEventListener("change", (e) => {
   const f = e.target.files[0]; if (!f) return;
   const picker = document.getElementById("fullSongFilePicker");
   const meta = document.getElementById("fullSongFileMeta");
-  const isWav = /\.wav$/i.test(f.name) || f.type === "audio/wav" || f.type === "audio/x-wav";
-  if (!isWav) {
-    showToast("กรุณาเลือกไฟล์นามสกุล .wav เท่านั้นสำหรับเพลงเต็ม", "error");
+  if (!isAllowedFullSongFile(f)) {
+    showToast("กรุณาเลือกไฟล์นามสกุล .wav หรือ .mp3 เท่านั้นสำหรับเพลงเต็ม", "error");
     e.target.value = "";
     pendingFullSongFile = null;
     meta.style.display = "none";
     return;
   }
   const sizeMb = f.size / (1024 * 1024);
-  if (sizeMb > MAX_FULL_WAV_SIZE_MB) {
-    showToast(`ไฟล์ใหญ่เกินไป (${sizeMb.toFixed(1)} MB) — จำกัดไม่เกิน ${MAX_FULL_WAV_SIZE_MB} MB`, "error");
+  if (sizeMb > MAX_FULL_SONG_SIZE_MB) {
+    showToast(`ไฟล์ใหญ่เกินไป (${sizeMb.toFixed(1)} MB) — จำกัดไม่เกิน ${MAX_FULL_SONG_SIZE_MB} MB`, "error");
     e.target.value = "";
     pendingFullSongFile = null;
     meta.style.display = "none";
@@ -696,7 +704,7 @@ async function openBulkUpload() {
   document.getElementById("bulkFilesPicker").textContent = "📁 แตะเพื่อเลือกไฟล์เพลงหลายไฟล์";
   document.getElementById("bulkFilesPicker").className = "file-picker";
   document.getElementById("bulkFullFilesInput").value = "";
-  document.getElementById("bulkFullFilesPicker").textContent = "🔒 แตะเพื่อเลือกไฟล์ WAV เต็มหลายไฟล์";
+  document.getElementById("bulkFullFilesPicker").textContent = "🔒 แตะเพื่อเลือกไฟล์เพลงเต็มหลายไฟล์ (WAV/MP3)";
   document.getElementById("bulkFullFilesPicker").className = "file-picker";
   document.getElementById("bulkFullFilesMeta").style.display = "none";
   document.getElementById("bulkFullFilesMeta").textContent = "";
@@ -732,11 +740,11 @@ document.getElementById("bulkFilesInput").addEventListener("change", (e) => {
 document.getElementById("bulkFullFilesInput").addEventListener("change", (e) => {
   const files = Array.from(e.target.files || []);
   const meta = document.getElementById("bulkFullFilesMeta");
-  const nonWav = files.filter(f => !/\.wav$/i.test(f.name));
-  if (nonWav.length > 0) {
-    showToast("ไฟล์เพลงเต็มต้องเป็นนามสกุล .wav เท่านั้น — ตัดไฟล์ที่ไม่ใช่ WAV ออกแล้ว: " + nonWav.map(f => f.name).join(", "), "error");
+  const rejected = files.filter(f => !isAllowedFullSongFile(f));
+  if (rejected.length > 0) {
+    showToast("ไฟล์เพลงเต็มต้องเป็นนามสกุล .wav หรือ .mp3 เท่านั้น — ตัดไฟล์ที่ไม่รองรับออกแล้ว: " + rejected.map(f => f.name).join(", "), "error");
   }
-  bulkFullFiles = files.filter(f => /\.wav$/i.test(f.name));
+  bulkFullFiles = files.filter(isAllowedFullSongFile);
   if (bulkFullFiles.length === 0) { meta.style.display = "none"; return; }
   document.getElementById("bulkFullFilesPicker").textContent = `🔒 เลือกแล้ว ${bulkFullFiles.length} ไฟล์`;
   document.getElementById("bulkFullFilesPicker").className = "file-picker filled";
