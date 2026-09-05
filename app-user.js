@@ -353,15 +353,20 @@ function renderPlaylists() {
       ev.stopPropagation();
       const pl = STATE.playlists.find(p => p.id === btn.getAttribute("data-add-cart-playlist"));
       if (!pl) return;
-      const songCount = STATE.songs.filter(s => s.playlist_id === pl.id).length;
-      const firstSong = STATE.songs.find(s => s.playlist_id === pl.id);
+      const plSongs = STATE.songs.filter(s => s.playlist_id === pl.id);
+      const firstSong = plSongs[0];
       addToCart({
         id: `playlist:${pl.id}`,
         song_name: `เพลย์ลิสต์: ${pl.playlist_name}`,
         cover_url: pl.cover_url || firstSong?.cover_url || "",
-        dj_name: `${songCount} เพลง`,
+        dj_name: `${plSongs.length} เพลง`,
         price: pl.price,
-        kind: "playlist"
+        kind: "playlist",
+        // Snapshot รายชื่อ+ไอดีเพลงในเพลย์ลิสต์ ณ ตอนเพิ่มลงตะกร้า
+        // ใช้แสดงผล "ดูรายการเพลง" ในตะกร้า/ใบเสร็จ และตรวจเพลงซ้ำกับเพลงเดี่ยวเท่านั้น
+        // (ไม่ถูกนำมาคิดราคาแยก ราคายังคงเป็นราคาเหมาเพลย์ลิสต์เท่านั้น)
+        song_ids: plSongs.map(s => String(s.id)),
+        songs: plSongs.map(s => ({ id: String(s.id), song_name: String(s.song_name || "เพลง") }))
       });
     });
   });
