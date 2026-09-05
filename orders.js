@@ -386,13 +386,24 @@ function calculateStats(orders) {
   // เพื่อไม่ให้ออเดอร์ที่ยังรอตรวจสอบหรือถูกยกเลิกไปปนกับยอดขายจริง
   const totalOrders = orders.length;
   const completed = orders.filter((o) => o.status === "completed");
-  const totalSongsSold = completed.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0);
+  // นับจำนวนเพลงต่อ Order: รายการปกติ (เพลงเดี่ยว) นับ 1, รายการที่เป็นเพลย์ลิสต์ (kind: "playlist",
+  // มาจากตะกร้าแบบผสม/หลายเพลย์ลิสต์) ให้นับตามจำนวนเพลงจริงใน song_ids แทนการนับเป็น 1 รายการ
+  const totalSongsSold = completed.reduce((sum, o) => {
+    const items = o.items || [];
+    const count = items.reduce((itemSum, item) => {
+      if (item?.kind === "playlist") return itemSum + (Array.isArray(item.song_ids) ? item.song_ids.length : 1);
+      return itemSum + 1;
+    }, 0);
+    return sum + count;
+  }, 0);
   const totalRevenue = completed.reduce((sum, o) => sum + Number(o.total || 0), 0);
   // แยกนับว่าออเดอร์ที่สำเร็จแล้วเป็นแบบ "เพลงเดี่ยว" หรือ "ยกเพลย์ลิสต์" กี่ออเดอร์
   // ออเดอร์เก่าที่ไม่มีฟิลด์ order_type (สร้างก่อนอัปเดตนี้) ให้นับเป็นเพลงเดี่ยวไว้ก่อน
   const singleCount = completed.filter((o) => (o.order_type || "single") === "single").length;
   const playlistCount = completed.filter((o) => o.order_type === "playlist").length;
-  return { totalOrders, totalSongsSold, totalRevenue, singleCount, playlistCount };
+  // ออเดอร์แบบผสม (เพลง+เพลย์ลิสต์ หรือหลายเพลย์ลิสต์ ที่สั่งซื้อจากตะกร้าฝั่งลูกค้า)
+  const mixedCount = completed.filter((o) => o.order_type === "mixed").length;
+  return { totalOrders, totalSongsSold, totalRevenue, singleCount, playlistCount, mixedCount };
 }
 
 /* ---------------- Render: ผลค้นหาเพลง (ฟอร์มสร้างออเดอร์ใหม่) ---------------- */
@@ -634,9 +645,12 @@ function renderHistory() {
       `<option value="${k}" ${o.status === k ? "selected" : ""}>${STATUS_CONFIG[k].emoji} ${STATUS_CONFIG[k].label}</option>`
     ).join("");
     const isPlaylistOrder = o.order_type === "playlist";
+    const isMixedOrder = o.order_type === "mixed";
     const typeBadge = isPlaylistOrder
       ? `<span class="order-type-badge" style="background:rgba(122,92,255,.15);color:var(--accent);">🎶 ยกเพลย์ลิสต์${o.playlist_name ? " · " + escapeHtml(o.playlist_name) : ""}</span>`
-      : `<span class="order-type-badge" style="background:rgba(255,255,255,.08);color:var(--text-dim);">🎵 เพลงเดี่ยว</span>`;
+      : isMixedOrder
+        ? `<span class="order-type-badge" style="background:rgba(245,180,0,.15);color:#F5B400;">🛒 เพลง+เพลย์ลิสต์ (${(o.items || []).length} รายการ)</span>`
+        : `<span class="order-type-badge" style="background:rgba(255,255,255,.08);color:var(--text-dim);">🎵 เพลงเดี่ยว</span>`;
     const zipInfo = o.zip_download_url
       ? `<div class="n2" style="color:var(--success);">📦 ${escapeHtml(o.zip_file_name || `Order-${o.id}.zip`)} · ${Number(o.zip_song_count || (o.items || []).length)} เพลง · <a href="${escapeHtml(toCloudinaryDownloadUrl(o.zip_download_url))}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">ดาวน์โหลด ZIP</a></div>`
       : o.zip_status === "failed"
@@ -827,22 +841,42 @@ async function openFullFilesModal(orderId) {
 
   // ดึงข้อมูลเพลงล่าสุดจาก Firestore ตรงๆ (ไม่ใช้ cache) เพราะเพลงอาจถูกปิดการขาย/แก้ไขไปแล้วหลังสั่งซื้อ
   const items = order.items || [];
-  const rows = await Promise.all(items.map(async (item) => {
+  // แต่ละ item ปกติแทนเพลง 1 เพลง (มี song_id) — ยกเว้น item ที่เป็น "playlist" (มาจาก Order ผสมที่สั่งจาก
+  // ตะกร้าฝั่งลูกค้า) ซึ่งไม่มี song_id ตรงๆ ต้องขยายเป็นรายเพลงจาก song_ids ที่ snapshot ไว้ตอนสั่งซื้อก่อน
+  const downloadRowsOf = async (songId, fallbackTitle) => {
     try {
-      const snap = await getDoc(doc(db, "songs", item.song_id));
+      const snap = await getDoc(doc(db, "songs", songId));
       const song = snap.exists() ? snap.data() : null;
       if (!song || !song.full_file_url) {
-        return `<div class="receipt-line"><div><strong>${escapeHtml(item.title || "เพลง")}</strong><small>ยังไม่ได้อัปโหลดไฟล์เต็ม WAV</small></div></div>`;
+        return `<div class="receipt-line"><div><strong>${escapeHtml(fallbackTitle || song?.song_name || "เพลง")}</strong><small>ยังไม่ได้อัปโหลดไฟล์เต็ม WAV</small></div></div>`;
       }
       return `
         <div class="receipt-line">
-          <div><strong>${escapeHtml(item.title || song.song_name || "เพลง")}</strong><small>${escapeHtml(song.full_file_name || "full.wav")}</small></div>
+          <div><strong>${escapeHtml(fallbackTitle || song.song_name || "เพลง")}</strong><small>${escapeHtml(song.full_file_name || "full.wav")}</small></div>
           <a class="btn secondary" style="padding:8px 14px;font-size:13px;" href="${toCloudinaryDownloadUrl(song.full_file_url)}" target="_blank" rel="noopener">ดาวน์โหลด</a>
         </div>`;
     } catch (err) {
-      return `<div class="receipt-line"><div><strong>${escapeHtml(item.title || "เพลง")}</strong><small>โหลดข้อมูลไม่สำเร็จ</small></div></div>`;
+      return `<div class="receipt-line"><div><strong>${escapeHtml(fallbackTitle || "เพลง")}</strong><small>โหลดข้อมูลไม่สำเร็จ</small></div></div>`;
     }
+  };
+
+  const rowGroups = await Promise.all(items.map(async (item) => {
+    if (item?.kind === "playlist") {
+      let songIds = Array.isArray(item.song_ids) ? item.song_ids : [];
+      // เผื่อ Order เก่า/กรณีไม่มี song_ids snapshot ไว้ ให้ query จาก playlist_id แทน
+      if (songIds.length === 0 && item.playlist_id) {
+        try {
+          const songsSnap = await getDocs(query(collection(db, "songs"), where("playlist_id", "==", item.playlist_id)));
+          songIds = songsSnap.docs.map((d) => d.id);
+        } catch (_) { /* ปล่อยผ่าน แสดง header ของเพลย์ลิสต์อย่างเดียวถ้า query ไม่สำเร็จ */ }
+      }
+      const header = `<div class="receipt-line" style="opacity:.75;"><div><small>🎶 เพลย์ลิสต์: ${escapeHtml(item.title || "เพลย์ลิสต์")}</small></div></div>`;
+      const songRows = await Promise.all(songIds.map((songId) => downloadRowsOf(songId, null)));
+      return header + songRows.join("");
+    }
+    return downloadRowsOf(item.song_id, item.title);
   }));
+  const rows = rowGroups;
 
   const zipRow = order.zip_download_url
     ? `<div class="receipt-line" style="background:rgba(41,204,113,.08);border:1px solid rgba(41,204,113,.25);border-radius:10px;padding:12px;margin-bottom:10px;">
@@ -1189,6 +1223,14 @@ function switchEditOrderType(type) {
 function openEditOrderModal(orderId) {
   const order = state.allOrders.find((o) => o.id === orderId);
   if (!order) return;
+
+  // ออเดอร์แบบผสม (เพลง+เพลย์ลิสต์ หรือหลายเพลย์ลิสต์ที่ลูกค้าสั่งจากตะกร้า) ยังไม่รองรับฟอร์มแก้ไขรายการเดิมนี้
+  // (ฟอร์มเดิมออกแบบไว้สำหรับ 2 กรณี: เพลงเดี่ยวล้วน หรือเพลย์ลิสต์เดียวล้วน) เพื่อไม่ให้บันทึกทับแล้วข้อมูล
+  // เพลย์ลิสต์ที่ผสมอยู่ในออเดอร์นี้หายไป — เปลี่ยนสถานะออเดอร์ผ่าน dropdown ในหน้าประวัติออเดอร์ได้ตามปกติ
+  if (order.order_type === "mixed") {
+    orderToast("ออเดอร์นี้มีทั้งเพลงและเพลย์ลิสต์รวมกัน ระบบแก้ไขรายการแบบเดิมยังไม่รองรับ กรุณาเปลี่ยนสถานะผ่านตัวเลือกสถานะแทน", "error");
+    return;
+  }
 
   state.editingOrderId = orderId;
   state.editCartItems = (order.items || []).map((i) => ({
