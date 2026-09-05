@@ -60,7 +60,12 @@ export async function uploadToCloudinary(file, onProgress) {
         reject(err);
       }
     };
-    xhr.onerror = () => reject(new Error("เชื่อมต่อ Cloudinary ไม่สำเร็จ"));
+    // หมายเหตุ: เดิมไม่มี timeout เลย — ถ้า request ค้าง (เน็ตหลุดกลางทาง, Safari บน iOS
+    // ระงับการอัปโหลดตอนสลับแอป/ล็อกหน้าจอ ฯลฯ) promise จะค้างตลอดไปโดยไม่มี error ใดๆ โผล่มาเลย
+    // ใส่ timeout ไว้กันปัญหานี้ (เท่ากับฝั่ง storage-adapter.js)
+    xhr.onerror = () => reject(new Error("เชื่อมต่อ Cloudinary ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"));
+    xhr.ontimeout = () => reject(new Error("อัปโหลดไฟล์นานเกินไป (เกิน 10 นาที) — เน็ตอาจช้าหรือหลุดกลางทาง ลองใหม่อีกครั้ง"));
+    xhr.timeout = 10 * 60 * 1000;
     xhr.send(formData);
   });
 }
