@@ -353,7 +353,10 @@ function ensureReceiptElements() {
         <button class="modal-close" id="receiptClose">✕</button>
       </div>
       <div id="receiptContent"></div>
-      <button class="btn" id="receiptPrintBtn" style="margin-top:14px;">พิมพ์ / บันทึกเป็น PDF</button>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn secondary" id="receiptCopyBtn" type="button" style="flex:1;">คัดลอกรายละเอียด</button>
+        <button class="btn" id="receiptPrintBtn" type="button" style="flex:1;">พิมพ์ / บันทึกเป็น PDF</button>
+      </div>
     </div>
   `;
   document.body.appendChild(backdrop);
@@ -684,6 +687,59 @@ function renderHistory() {
 }
 
 /* ---------------- ใบเสร็จดิจิทัล ---------------- */
+function getReceiptStatusLabel(status) {
+  return STATUS_CONFIG[status]?.label || "รอตรวจสอบการโอน";
+}
+
+function buildReceiptCopyText(order, receiptNumber, total, playlistName) {
+  const date = order.created_at ? new Date(order.created_at) : new Date();
+  const dateText = Number.isNaN(date.getTime())
+    ? "-"
+    : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  const itemLines = order.order_type === "playlist"
+    ? [`1. เพลย์ลิสต์: ${playlistName} — ${formatLAK(total)}`]
+    : (order.items || []).map((item, index) =>
+        `${index + 1}. ${item.title || "เพลง"} — ${formatLAK(item.price)}`
+      );
+  return [
+    order.store_name || state.storeName || "Music Store",
+    "ใบเสร็จรับเงิน / รายละเอียด Order",
+    `เลขที่: ${receiptNumber}`,
+    `วันที่: ${dateText}`,
+    `สถานะ: ${getReceiptStatusLabel(order.status)}`,
+    "",
+    `ลูกค้า: ${order.customer_name || "-"}`,
+    `WhatsApp: ${order.whatsapp || "-"}`,
+    "",
+    "รายการสั่งซื้อ:",
+    ...(itemLines.length ? itemLines : ["ไม่มีรายการสินค้า"]),
+    "",
+    `รวมทั้งสิ้น: ${formatLAK(total)}`,
+    "กรุณาโอนเงินตามช่องทางที่ร้านแจ้ง"
+  ].join("\n");
+}
+
+async function copyReceiptDetails(order, receiptNumber, total, playlistName) {
+  const text = buildReceiptCopyText(order, receiptNumber, total, playlistName);
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    orderToast("คัดลอกรายละเอียด Order แล้ว", "success");
+  } catch (err) {
+    orderToast("คัดลอกไม่สำเร็จ กรุณาลองใหม่", "error");
+  }
+}
+
 function openReceipt(orderId) {
   const order = state.allOrders.find((o) => o.id === orderId);
   if (!order) return;
@@ -741,6 +797,10 @@ function openReceipt(orderId) {
   const backdrop = document.getElementById("receiptBackdrop");
   backdrop.classList.add("open");
   backdrop.style.display = "flex";
+  const copyBtn = document.getElementById("receiptCopyBtn");
+  if (copyBtn) {
+    copyBtn.onclick = () => copyReceiptDetails(order, receiptNumber, total, playlistName);
+  }
 }
 
 function closeReceipt() {
@@ -1418,6 +1478,7 @@ export async function initOrdersView() {
     document.getElementById("eOrdPlaylistSearch").addEventListener("input", debounce(handleEditPlaylistSearchInput, 200));
 
     document.getElementById("receiptClose").addEventListener("click", closeReceipt);
+    // ปุ่มคัดลอกถูกผูกกับ Order ที่เปิดอยู่ใน openReceipt()
     document.getElementById("receiptPrintBtn").addEventListener("click", () => window.print());
     document.getElementById("receiptBackdrop").addEventListener("click", (e) => {
       if (e.target.id === "receiptBackdrop") closeReceipt();
