@@ -1,6 +1,6 @@
 // app-admin.js — หน้า Admin: Login (Firebase Auth) + CRUD (Firestore) + อัปโหลดไฟล์ (Cloudinary)
 // ===================================================
-import { db, auth, uploadToCloudinary } from "./firebase-init.js";
+import { db, auth, uploadToCloudinary } from "./firebase-init.js?v=20260905-fix1";
 import { uploadFullSong } from "./storage-adapter.js?v=20260904-rawzip";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc
@@ -9,7 +9,7 @@ import {
   signInWithEmailAndPassword, onAuthStateChanged, signOut,
   reauthenticateWithCredential, EmailAuthProvider, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initOrdersView } from "./orders.js?v=20260905-cart-order-copy";
+import { initOrdersView } from "./orders.js?v=20260905-fix1";
 import { resolveCurrentAdminRole, initAdminsView } from "./admin-roles.js";
 
 const CACHE = { songs: [], categories: [], djs: [], playlists: [] };
