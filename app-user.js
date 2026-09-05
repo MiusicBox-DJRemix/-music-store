@@ -8,10 +8,12 @@ const STATE = {
   currentCategory: "all", currentDj: null, search: "",
   currentView: "home",
   currentPlayingId: null,   // id ของเพลงที่กำลังเล่น/พักอยู่ในเครื่องเล่น
-  currentLoadingId: null    // id ของเพลงที่กำลังโหลดอยู่
+  currentLoadingId: null,   // id ของเพลงที่กำลังโหลดอยู่
+  cart: []
 };
 const AUDIO = new Audio();
 let audioUnlocked = false;
+const CART_STORAGE_KEY = "music_store_cart_v1";
 
 function showToast(message, type) {
   const el = document.getElementById("toast");
@@ -41,13 +43,195 @@ function buildWhatsAppLink(number, text) {
 
 function debounce(fn, wait) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); }; }
 
-// ฟังก์ชันสำหรับจัดการคลิกซื้อผ่านตะกร้าสินค้า
-function handleAddToCart(songName, priceText, djName) {
-  const text = `สวัสดีครับ\nสนใจซื้อเพลง:\nชื่อเพลง: ${songName}\nDJ: ${djName || "-"}\nราคา: ${priceText}`;
-  window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+function loadCart() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) throw new Error("cart is not an array");
+    STATE.cart = parsed
+      .filter(item => item && item.id && item.song_name)
+      .map(item => ({
+        id: String(item.id),
+        song_name: String(item.song_name),
+        cover_url: String(item.cover_url || ""),
+        dj_name: String(item.dj_name || ""),
+        price: Math.max(0, Number(item.price) || 0),
+        quantity: Math.min(99, Math.max(1, Math.floor(Number(item.quantity) || 1)))
+      }));
+  } catch (_) {
+    // A damaged cart must never prevent the store from loading.
+    STATE.cart = [];
+    try { localStorage.removeItem(CART_STORAGE_KEY); } catch (__) {}
+  }
+  renderCart();
+}
+
+function saveCart() {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(STATE.cart));
+  } catch (_) {
+    showToast("บันทึกตะกร้าไม่ได้ กรุณาตรวจสอบพื้นที่จัดเก็บของเบราว์เซอร์", "error");
+  }
+  renderCart();
+}
+
+function cartQuantity() {
+  return STATE.cart.reduce((total, item) => total + item.quantity, 0);
+}
+
+function cartTotal() {
+  return STATE.cart.reduce((total, item) => total + item.price * item.quantity, 0);
+}
+
+function addToCart(song) {
+  if (!song || !song.id) return;
+  const existing = STATE.cart.find(item => item.id === song.id);
+  if (existing) {
+    existing.quantity = Math.min(99, existing.quantity + 1);
+    showToast(`เพิ่ม "${song.song_name}" อีก 1 รายการแล้ว`, "success");
+  } else {
+    STATE.cart.push({
+      id: String(song.id),
+      song_name: String(song.song_name || ""),
+      cover_url: String(song.cover_url || ""),
+      dj_name: String(song.dj_name || ""),
+      price: Math.max(0, Number(song.price) || 0),
+      quantity: 1
+    });
+    showToast("เพิ่มเพลงลงตะกร้าแล้ว", "success");
+  }
+  saveCart();
+}
+
+function changeCartQuantity(songId, delta) {
+  const item = STATE.cart.find(entry => entry.id === songId);
+  if (!item) return;
+  item.quantity = Math.min(99, Math.max(0, item.quantity + delta));
+  if (item.quantity === 0) STATE.cart = STATE.cart.filter(entry => entry.id !== songId);
+  saveCart();
+}
+
+function removeFromCart(songId) {
+  STATE.cart = STATE.cart.filter(item => item.id !== songId);
+  saveCart();
+}
+
+function renderCart() {
+  const itemsEl = document.getElementById("cartItems");
+  const summaryEl = document.getElementById("cartSummary");
+  const badgeEl = document.getElementById("cartBadge");
+  if (!itemsEl) return;
+
+  const quantity = cartQuantity();
+  if (badgeEl) {
+    badgeEl.textContent = quantity > 99 ? "99+" : String(quantity);
+    badgeEl.hidden = quantity === 0;
+  }
+
+  if (STATE.cart.length === 0) {
+    itemsEl.innerHTML = `
+      <div class="cart-empty">
+        <p>ยังไม่มีเพลงในตะกร้า</p>
+        <button class="btn secondary" type="button" data-cart-continue>กลับไปเลือกซื้อเพลง</button>
+      </div>`;
+    if (summaryEl) summaryEl.hidden = true;
+    return;
+  }
+
+  itemsEl.innerHTML = STATE.cart.map(item => `
+    <div class="cart-item" data-cart-item="${escapeHtml(item.id)}">
+      <img class="cart-item-cover" src="${escapeHtml(item.cover_url)}" alt="">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${escapeHtml(item.song_name)}</div>
+        <div class="cart-item-meta">${escapeHtml(item.dj_name || "เพลง Remix")} · ${formatPrice(item.price)} / เพลง</div>
+        <div class="cart-quantity" aria-label="จำนวน ${escapeHtml(item.song_name)}">
+          <button type="button" data-cart-minus="${escapeHtml(item.id)}" aria-label="ลดจำนวน">−</button>
+          <strong>${item.quantity}</strong>
+          <button type="button" data-cart-plus="${escapeHtml(item.id)}" aria-label="เพิ่มจำนวน">+</button>
+        </div>
+      </div>
+      <div class="cart-item-total">${formatPrice(item.price * item.quantity)}</div>
+      <button class="cart-remove" type="button" data-cart-remove="${escapeHtml(item.id)}">ลบ</button>
+    </div>
+  `).join("");
+
+  if (summaryEl) summaryEl.hidden = false;
+  const quantityEl = document.getElementById("cartTotalQuantity");
+  const priceEl = document.getElementById("cartTotalPrice");
+  if (quantityEl) quantityEl.textContent = `${quantity} เพลง`;
+  if (priceEl) priceEl.textContent = formatPrice(cartTotal());
+}
+
+function openCart() {
+  const backdrop = document.getElementById("cartBackdrop");
+  if (!backdrop) return;
+  renderCart();
+  backdrop.classList.add("show");
+  backdrop.setAttribute("aria-hidden", "false");
+}
+
+function closeCart() {
+  const backdrop = document.getElementById("cartBackdrop");
+  if (!backdrop) return;
+  backdrop.classList.remove("show");
+  backdrop.setAttribute("aria-hidden", "true");
+}
+
+function checkoutCart() {
+  if (STATE.cart.length === 0) {
+    showToast("ยังไม่มีเพลงในตะกร้า", "error");
+    return;
+  }
+  const lines = STATE.cart.map((item, index) =>
+    `${index + 1}. ${item.song_name} x${item.quantity} — ${formatPrice(item.price * item.quantity)}`
+  );
+  const text = [
+    "สวัสดีครับ ต้องการสั่งซื้อเพลงดังต่อไปนี้",
+    "",
+    "🛒 รายการสั่งซื้อ",
+    ...lines,
+    "",
+    `🎵 จำนวนทั้งหมด: ${cartQuantity()} เพลง`,
+    `💰 ราคารวม: ${formatPrice(cartTotal())}`,
+    "",
+    "รบกวนแจ้งรายละเอียดการชำระเงินด้วยครับ"
+  ].join("\n");
+  const number = String(STATE.settings.whatsapp_number || "").replace(/[^0-9]/g, "");
+  if (!number) {
+    showToast("ร้านยังไม่ได้ตั้งค่าเบอร์ WhatsApp", "error");
+    return;
+  }
+  // Intentionally keep the cart after opening WhatsApp so the customer can verify payment first.
+  window.open(buildWhatsAppLink(number, text), "_blank");
+}
+
+function bindCartEvents() {
+  document.getElementById("cartToggleBtn")?.addEventListener("click", openCart);
+  document.getElementById("cartCloseBtn")?.addEventListener("click", closeCart);
+  document.getElementById("cartBackdrop")?.addEventListener("click", event => {
+    if (event.target === event.currentTarget) closeCart();
+  });
+  document.getElementById("cartItems")?.addEventListener("click", event => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.matches("[data-cart-continue]")) { closeCart(); return; }
+    if (button.dataset.cartMinus) changeCartQuantity(button.dataset.cartMinus, -1);
+    if (button.dataset.cartPlus) changeCartQuantity(button.dataset.cartPlus, 1);
+    if (button.dataset.cartRemove) removeFromCart(button.dataset.cartRemove);
+  });
+  document.getElementById("clearCartBtn")?.addEventListener("click", () => {
+    if (STATE.cart.length && window.confirm("ต้องการล้างเพลงทั้งหมดออกจากตะกร้าหรือไม่?")) {
+      STATE.cart = [];
+      saveCart();
+      showToast("ล้างตะกร้าแล้ว", "success");
+    }
+  });
+  document.getElementById("checkoutCartBtn")?.addEventListener("click", checkoutCart);
 }
 
 async function init() {
+  loadCart();
+  bindCartEvents();
   const [songsSnap, catSnap, djSnap, playlistSnap, settingsSnap] = await Promise.all([
     getDocs(collection(db, "songs")),
     getDocs(collection(db, "categories")),
@@ -232,13 +416,10 @@ function renderSongGrid() {
         <div class="song-artist">${escapeHtml(s.artist || "")}</div>
         ${s.dj_name ? `<div class="song-dj">DJ: ${escapeHtml(s.dj_name)}</div>` : ""}
         <div class="song-footer" style="display: flex; justify-content: flex-end; align-items: center; margin-top: auto;">
-          <div style="display: inline-flex; align-items: center; gap: 4px;">
-            <span class="song-price" data-add-cart="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 13px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-              ${formatPrice(s.price)}
-            </span>
-            <span style="color: #888; font-size: 16px; font-weight: bold; letter-spacing: 1px; padding-left: 4px; line-height: 1;">⋮</span>
-          </div>
+          <button class="cart-add-btn" type="button" data-add-cart="${s.id}" aria-label="เพิ่ม ${escapeHtml(s.song_name)} ลงตะกร้า">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            เพิ่มลงตะกร้า · ${formatPrice(s.price)}
+          </button>
         </div>
       </div>
     </div>
@@ -253,7 +434,7 @@ function renderSongGrid() {
       ev.stopPropagation();
       const song = findSong(el.getAttribute("data-add-cart"));
       if (song) {
-        handleAddToCart(song.song_name, formatPrice(song.price), song.dj_name);
+        addToCart(song);
       }
     });
   });
@@ -319,11 +500,10 @@ function renderPlaylists() {
                 </div>
                 <div class="playlist-item-price" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; position: absolute; right: 0; bottom: 0;">
                   <div style="display: inline-flex; align-items: center; gap: 4px;">
-                    <span class="playlist-add-cart" data-add-cart-song="${s.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; background: transparent; padding: 0;">
+                    <button class="cart-add-btn playlist-add-cart" type="button" data-add-cart-song="${s.id}" aria-label="เพิ่ม ${escapeHtml(s.song_name)} ลงตะกร้า">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                       ${formatPrice(s.price)}
-                    </span>
-                    <span style="color: #888; font-size: 14px; font-weight: bold; line-height: 1; padding-left: 2px;">⋮</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -363,7 +543,7 @@ function renderPlaylists() {
       ev.stopPropagation();
       const song = findSong(btn.getAttribute("data-add-cart-song"));
       if (song) {
-        handleAddToCart(song.song_name, formatPrice(song.price), song.dj_name);
+        addToCart(song);
       }
     });
   });
