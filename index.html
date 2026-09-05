@@ -26,6 +26,11 @@
   .cart-actions { display:flex; gap:8px; margin-top:14px; }
   .cart-actions > * { flex:1; }
   .cart-feedback { min-height:20px; margin-top:8px; font-size:13px; }
+  /* รายการเพลงภายใน Playlist ที่แสดงในตะกร้า (ดูอย่างเดียว ไม่คิดราคาแยก) */
+  .cart-item-viewsongs { grid-column:1 / -1; border:0; background:transparent; color:var(--accent-2); font-size:12px; text-align:left; padding:2px 0 0; cursor:pointer; }
+  .cart-item-songs { grid-column:1 / -1; display:none; flex-direction:column; gap:3px; margin-top:4px; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,.05); }
+  .cart-item-songs.is-open { display:flex; }
+  .cart-item-songs-row { font-size:12px; color:var(--text-dim); }
   @media (max-width:480px) {
     .cart-item { grid-template-columns:42px minmax(0,1fr) auto; }
     .cart-item-cover { width:42px; height:42px; }
@@ -212,6 +217,6 @@
   </script>
 
   <!-- เปลี่ยนเลข v ทุกครั้งที่อัปโหลดไฟล์ใหม่ เพื่อไม่ให้มือถือใช้ไฟล์ JS จาก cache -->
-  <script type="module" src="app-user.js?v=20260905-fix1"></script>
+  <script type="module" src="app-user.js?v=20260905-fix2"></script>
 </body>
 </html>
