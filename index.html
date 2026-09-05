@@ -6,6 +6,162 @@
 <meta name="description" content="ร้านเพลงออนไลน์ ฟังเพลงฟรี สั่งซื้อง่ายผ่าน WhatsApp">
 <title>Music Store</title>
 <link rel="stylesheet" href="style.css?v=4">
+<style>
+  /* Cart UI — intentionally scoped so the existing store styles stay unchanged. */
+  .cart-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--surface, #1f2937);
+    color: var(--text, #fff);
+    cursor: pointer;
+  }
+  .cart-toggle-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--accent, #ef4444);
+    color: #fff;
+    font-size: 11px;
+    line-height: 19px;
+    text-align: center;
+    font-weight: 800;
+  }
+  .cart-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, .66);
+    padding: 16px;
+  }
+  .cart-backdrop.show { display: flex; }
+  .cart-panel {
+    width: min(100%, 760px);
+    max-height: min(92vh, 840px);
+    overflow: auto;
+    border-radius: 22px 22px 14px 14px;
+    background: var(--surface, #111827);
+    color: var(--text, #fff);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, .45);
+    padding: 20px;
+  }
+  .cart-header, .cart-summary-row, .cart-item {
+    display: flex;
+    align-items: center;
+  }
+  .cart-header {
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .cart-header h2 { margin: 0; font-size: 22px; }
+  .cart-close {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font-size: 22px;
+    cursor: pointer;
+  }
+  .cart-item {
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .cart-item-cover {
+    width: 58px;
+    height: 58px;
+    flex: 0 0 58px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: rgba(255,255,255,.08);
+  }
+  .cart-item-info { min-width: 0; flex: 1; }
+  .cart-item-name {
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cart-item-meta { margin-top: 3px; color: var(--text-dim, #9ca3af); font-size: 13px; }
+  .cart-item-total { min-width: 92px; text-align: right; font-weight: 800; }
+  .cart-quantity {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 7px;
+  }
+  .cart-quantity button, .cart-remove {
+    border: 0;
+    cursor: pointer;
+  }
+  .cart-quantity button {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(255,255,255,.1);
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .cart-remove {
+    flex: 0 0 auto;
+    padding: 7px;
+    background: transparent;
+    color: #f87171;
+    font-size: 13px;
+  }
+  .cart-empty { padding: 42px 16px; text-align: center; color: var(--text-dim, #9ca3af); }
+  .cart-empty p { margin: 0 0 16px; }
+  .cart-summary {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.14);
+  }
+  .cart-summary-row { justify-content: space-between; gap: 16px; margin: 8px 0; }
+  .cart-summary-total { font-size: 20px; font-weight: 900; }
+  .cart-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .cart-actions button { flex: 1; min-height: 46px; }
+  .cart-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: rgba(34, 197, 94, .14);
+    color: #22c55e;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  @media (min-width: 700px) {
+    .cart-backdrop { align-items: center; }
+    .cart-panel { border-radius: 22px; }
+  }
+  @media (max-width: 420px) {
+    .cart-panel { padding: 16px; }
+    .cart-item-total { min-width: 72px; font-size: 13px; }
+    .cart-actions { flex-direction: column; }
+  }
+</style>
 </head>
 <body>
 
@@ -15,6 +171,10 @@
         <img id="siteLogo" src="" alt="logo" style="display:none;">
         <span id="siteName">Music Store</span>
       </div>
+      <button class="cart-toggle" id="cartToggleBtn" type="button" aria-label="เปิดตะกร้าสินค้า">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-toggle-badge" id="cartBadge" hidden>0</span>
+      </button>
     </div>
     <div class="container" style="padding-bottom:10px;">
       <div class="search-box">
@@ -113,6 +273,30 @@
     </div>
   </div>
 
+  <div class="cart-backdrop" id="cartBackdrop" aria-hidden="true">
+    <section class="cart-panel" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+      <div class="cart-header">
+        <h2 id="cartTitle">ตะกร้าสินค้า</h2>
+        <button class="cart-close" id="cartCloseBtn" type="button" aria-label="ปิดตะกร้า">✕</button>
+      </div>
+      <div id="cartItems"></div>
+      <div class="cart-summary" id="cartSummary" hidden>
+        <div class="cart-summary-row">
+          <span>จำนวนเพลงทั้งหมด</span>
+          <strong id="cartTotalQuantity">0 เพลง</strong>
+        </div>
+        <div class="cart-summary-row cart-summary-total">
+          <span>ราคารวม</span>
+          <strong id="cartTotalPrice">0 LAK</strong>
+        </div>
+        <div class="cart-actions">
+          <button class="btn secondary" id="clearCartBtn" type="button">ล้างตะกร้า</button>
+          <button class="btn whatsapp" id="checkoutCartBtn" type="button">สั่งซื้อผ่าน WhatsApp</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <!-- สคริปต์สลับการ เปิด-ปิด Dropdown -->
@@ -132,6 +316,6 @@
   </script>
 
   <!-- เปลี่ยนเลข v ทุกครั้งที่อัปโหลดไฟล์ใหม่ เพื่อไม่ให้มือถือใช้ไฟล์ JS จาก cache -->
-  <script type="module" src="app-user.js?v=4"></script>
+  <script type="module" src="app-user.js?v=5"></script>
 </body>
 </html>
