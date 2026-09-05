@@ -2,7 +2,7 @@
 // ===================================================
 import { db } from "./firebase-init.js";
 import { collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { initCart } from "./app-cart.js";
+import { initCart } from "./app-cart.js?v=20260905-cart-order";
 
 const STATE = {
   songs: [], categories: [], djs: [], playlists: [], settings: {},
