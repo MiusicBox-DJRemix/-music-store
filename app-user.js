@@ -1,8 +1,8 @@
 // app-user.js — หน้า User: ดึงข้อมูลจาก Firestore, เล่นเพลงจาก Cloudinary โดยตรง
 // ===================================================
-import { db } from "./firebase-init.js";
+import { db } from "./firebase-init.js?v=20260905-fix1";
 import { collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { initCart } from "./app-cart.js?v=20260905-cart-order";
+import { initCart } from "./app-cart.js?v=20260905-fix1";
 
 const STATE = {
   songs: [], categories: [], djs: [], playlists: [], settings: {},
