@@ -42,7 +42,7 @@ function getPlaylistName(playlist) {
 }
 
 // งานสร้าง ZIP ถูกกันซ้ำไว้ในหน้านี้ เพื่อไม่ให้ออเดอร์เดียวกันถูกสร้างหลายไฟล์
-// หาก Admin เปิด/กดซ้ำระหว่างที่กำลังดาวน์โหลด WAV จาก Cloud
+// หาก Admin เปิด/กดซ้ำระหว่างที่กำลังดาวน์โหลดไฟล์เต็มจาก Cloud
 const zipJobs = new Set();
 let jsZipModulePromise = null;
 
@@ -114,12 +114,13 @@ async function resolveOrderSongs(order) {
   return [...songMap.values()];
 }
 
+// เก็บนามสกุลไฟล์เต็มไว้ตามจริง (.wav หรือ .mp3) — ถ้าไม่มีนามสกุลที่รู้จักเลยค่อย fallback เป็น .wav
 function safeZipFileName(value, fallback) {
   const cleaned = String(value || fallback || "เพลง.wav")
     .replace(/[\\/:*?"<>|]/g, "_")
     .replace(/\s+/g, " ")
     .trim();
-  return /\.wav$/i.test(cleaned) ? cleaned : `${cleaned}.wav`;
+  return /\.(wav|mp3)$/i.test(cleaned) ? cleaned : `${cleaned}.wav`;
 }
 
 function uniqueZipFileName(value, usedNames) {
@@ -142,7 +143,7 @@ function uniqueZipFileName(value, usedNames) {
 }
 
 /*
- * ดาวน์โหลด WAV เต็มจาก Cloud แล้วสร้าง ZIP ก่อนจึงค่อยอัปโหลด ZIP กลับขึ้น Cloud
+ * ดาวน์โหลดไฟล์เต็ม (WAV/MP3) จาก Cloud แล้วสร้าง ZIP ก่อนจึงค่อยอัปโหลด ZIP กลับขึ้น Cloud
  * จุดสำคัญ: อ่านเฉพาะ full_file_url ของเพลง ไม่แตะ preview_url/ไฟล์ตัวอย่าง
  */
 async function createOrderZip(orderId) {
@@ -180,25 +181,25 @@ async function createOrderZip(orderId) {
         throw new Error(`ไม่พบข้อมูลเพลง "${item.title}"`);
       }
       const song = songSnap.data();
-      // ห้าม fallback ไปใช้ preview_url เพราะ ZIP ต้องเป็น WAV จริงเท่านั้น
+      // ห้าม fallback ไปใช้ preview_url เพราะ ZIP ต้องเป็นไฟล์เต็มจริงเท่านั้น (WAV หรือ MP3)
       if (!song.full_file_url) {
-        throw new Error(`เพลง "${song.song_name || item.title}" ยังไม่มีไฟล์เต็ม WAV บน Cloud`);
+        throw new Error(`เพลง "${song.song_name || item.title}" ยังไม่มีไฟล์เต็มบน Cloud`);
       }
 
-      orderToast(`กำลังดึง WAV ${index + 1}/${orderSongs.length}...`);
+      orderToast(`กำลังดึงไฟล์เต็ม ${index + 1}/${orderSongs.length}...`);
       const response = await fetch(song.full_file_url, { mode: "cors", cache: "no-store" });
       if (!response.ok) {
-        throw new Error(`ดึงไฟล์ WAV ของเพลง "${song.song_name || item.title}" ไม่สำเร็จ (${response.status})`);
+        throw new Error(`ดึงไฟล์เต็มของเพลง "${song.song_name || item.title}" ไม่สำเร็จ (${response.status})`);
       }
-      const wavBlob = await response.blob();
+      const fullBlob = await response.blob();
       const entryName = uniqueZipFileName(
         song.full_file_name || `${song.song_name || item.title}.wav`,
         usedNames
       );
-      zip.file(entryName, wavBlob);
+      zip.file(entryName, fullBlob);
     }
 
-    orderToast("กำลังบีบอัดไฟล์ WAV เป็น ZIP...");
+    orderToast("กำลังบีบอัดไฟล์เต็มเป็น ZIP...");
     const zipBlob = await zip.generateAsync(
       { type: "blob", compression: "STORE" },
       (metadata) => orderToast(`กำลังสร้าง ZIP... ${Math.round(metadata.percent)}%`)
@@ -374,7 +375,7 @@ function ensureFullFilesElements() {
         <h3>ไฟล์เพลงเต็มสำหรับส่งลูกค้า</h3>
         <button class="modal-close" id="fullFilesClose">✕</button>
       </div>
-       <p style="color:var(--text-dim);font-size:13px;margin-top:0;">ระบบจะสร้าง ZIP จาก WAV เต็มให้อัตโนมัติหลังยืนยันโอน — ลิงก์นี้สำหรับ Admin เท่านั้น ห้ามส่งลิงก์นี้ตรงให้ลูกค้า</p>
+       <p style="color:var(--text-dim);font-size:13px;margin-top:0;">ระบบจะสร้าง ZIP จากไฟล์เต็มให้อัตโนมัติหลังยืนยันโอน — ลิงก์นี้สำหรับ Admin เท่านั้น ห้ามส่งลิงก์นี้ตรงให้ลูกค้า</p>
       <div id="fullFilesContent"></div>
     </div>
   `;
@@ -823,7 +824,7 @@ function closeReceipt() {
   backdrop.style.display = "none";
 }
 
-/* ---------------- ไฟล์เพลงเต็ม WAV สำหรับ Admin ส่งลูกค้า (หลังชำระเงินแล้วเท่านั้น) ---------------- */
+/* ---------------- ไฟล์เพลงเต็ม (WAV/MP3) สำหรับ Admin ส่งลูกค้า (หลังชำระเงินแล้วเท่านั้น) ---------------- */
 async function openFullFilesModal(orderId) {
   const order = state.allOrders.find((o) => o.id === orderId);
   const content = document.getElementById("fullFilesContent");
@@ -848,7 +849,7 @@ async function openFullFilesModal(orderId) {
       const snap = await getDoc(doc(db, "songs", songId));
       const song = snap.exists() ? snap.data() : null;
       if (!song || !song.full_file_url) {
-        return `<div class="receipt-line"><div><strong>${escapeHtml(fallbackTitle || song?.song_name || "เพลง")}</strong><small>ยังไม่ได้อัปโหลดไฟล์เต็ม WAV</small></div></div>`;
+        return `<div class="receipt-line"><div><strong>${escapeHtml(fallbackTitle || song?.song_name || "เพลง")}</strong><small>ยังไม่ได้อัปโหลดไฟล์เต็ม</small></div></div>`;
       }
       return `
         <div class="receipt-line">
