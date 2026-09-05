@@ -2,7 +2,7 @@
 // ===================================================
 import { db } from "./firebase-init.js?v=20260905-fix1";
 import {
-  collection, doc, query, where, runTransaction
+  collection, doc, query, where, getDoc, getDocs, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CART_STORAGE_KEY = "music_store_cart_v1";
@@ -241,8 +241,15 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
 
   /*
    * ตรวจสอบรายการในตะกร้า + คำนวณราคาจากฐานข้อมูลจริง (ไม่เชื่อราคาที่ cache ไว้ในตะกร้า)
-   * รับ `transaction` ของ Firestore เข้ามา เพื่อให้การอ่านทั้งหมดอยู่ใน Transaction เดียวกับ
-   * ตอนเขียน Order — ถ้าขั้นตอนใดใน Transaction throw ระบบจะไม่เขียน Order เลย (rollback อัตโนมัติ)
+   *
+   * หมายเหตุ (แก้บั๊ก 2026-09-05): เดิมฟังก์ชันนี้อ่านข้อมูลผ่าน Firestore Transaction
+   * (transaction.get) เพื่อให้อ่าน+เขียน Order อยู่ในธุรกรรมเดียวกัน แต่พบว่า Firestore Web SDK
+   * ในบางเบราว์เซอร์/เครือข่าย (โดยเฉพาะ Safari/iPad) โยน TypeError ภายใน SDK เอง
+   * ("undefined is not an object (evaluating 'i.path')") เวลาปิด transaction ที่มีทั้ง
+   * document read และ query read ปนกัน — จึงเปลี่ยนมาใช้การอ่านแบบธรรมดา (getDoc/getDocs)
+   * แทน แล้วค่อยเขียน Order ด้วย setDoc() อีกที (ไม่ใช้ transaction) ผลลัพธ์/ราคาที่คำนวณ
+   * ยังคงเหมือนเดิมทุกประการ เพียงแต่ไม่การันตี atomicity ระดับ Firestore transaction
+   * (ซึ่งยอมรับได้ เพราะทุก Order ที่สร้างมีสถานะ "รอตรวจสอบการโอน" ให้แอดมินเช็คมืออยู่แล้ว)
    *
    * รองรับ 3 รูปแบบของตะกร้า:
    *  1) มีแต่เพลงเดี่ยว                      -> order_type "single"   (พฤติกรรมเดิมทุกประการ)
@@ -251,14 +258,14 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
    *     กรณีนี้ 1 รายการในตะกร้า = 1 Order Item เสมอ (เพลย์ลิสต์ไม่ถูกขยายเป็นหลายเพลง)
    *     เช่น เพลง 3 เพลง + เพลย์ลิสต์ 2 รายการ -> items.length === 5
    */
-  async function resolveCartFromDatabase(transaction) {
+  async function resolveCartFromDatabase() {
     const songEntries = state.cart.filter(item => item.kind !== "playlist");
     const playlistEntries = state.cart.filter(item => item.kind === "playlist");
 
     // ---- ตรวจสอบ/ดึงราคาล่าสุดของเพลงเดี่ยวที่เพิ่มเองในตะกร้า ----
     const singleSongItems = [];
     for (const cartItem of songEntries) {
-      const songSnap = await transaction.get(doc(db, "songs", String(cartItem.id)));
+      const songSnap = await getDoc(doc(db, "songs", String(cartItem.id)));
       if (!songSnap.exists()) throw new Error(`ไม่พบเพลง "${cartItem.song_name}" ในฐานข้อมูล`);
       const song = songSnap.data();
       if (song.status === "hidden") throw new Error(`เพลง "${song.song_name || cartItem.song_name}" ปิดการขายแล้ว`);
@@ -276,7 +283,7 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
     const playlistResolutions = [];
     for (const cartItem of playlistEntries) {
       const playlistId = String(cartItem.id).replace(/^playlist:/, "");
-      const playlistSnap = await transaction.get(doc(db, "playlists", playlistId));
+      const playlistSnap = await getDoc(doc(db, "playlists", playlistId));
       if (!playlistSnap.exists()) throw new Error(`ไม่พบเพลย์ลิสต์ "${cartItem.song_name}" ในฐานข้อมูล`);
       const playlist = { id: playlistSnap.id, ...playlistSnap.data() };
       const playlistPrice = Number(playlist.price);
@@ -284,7 +291,7 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
         throw new Error(`เพลย์ลิสต์ "${playlist.playlist_name || cartItem.song_name}" ยังไม่มีราคาขาย`);
       }
 
-      const songsSnap = await transaction.get(query(collection(db, "songs"), where("playlist_id", "==", playlistId)));
+      const songsSnap = await getDocs(query(collection(db, "songs"), where("playlist_id", "==", playlistId)));
       const activeSongs = [];
       songsSnap.docs.forEach(songDoc => {
         const song = songDoc.data();
@@ -301,7 +308,7 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
       playlistResolutions.push({ playlist, songs: activeSongs });
     }
 
-    const settingsSnap = await transaction.get(doc(db, "settings", "main"));
+    const settingsSnap = await getDoc(doc(db, "settings", "main"));
     const settings = settingsSnap.exists() ? settingsSnap.data() : {};
 
     // ===== กรณีเดิม (1): มีเพลย์ลิสต์เดียวล้วนๆ ไม่มีเพลงเดี่ยวปน — คงพฤติกรรมเดิมทุกประการ =====
@@ -407,7 +414,7 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
     const reusableOrderId = activeOrderKey === checkoutKey
       ? activeOrderId
       : getStoredOrderId(checkoutKey);
-    // ใช้ doc() สร้าง reference/ID ไว้ล่วงหน้า (ไม่แตะ Firestore จริง) เพื่อใช้เป็น orderRef ใน Transaction
+    // ใช้ doc() สร้าง reference/ID ไว้ล่วงหน้า เพื่อใช้เป็น orderRef ตอนเขียนจริงด้านล่าง
     const orderRef = reusableOrderId
       ? doc(db, "orders", reusableOrderId)
       : doc(collection(db, "orders"));
@@ -416,37 +423,37 @@ export function initCart({ state, showToast, escapeHtml, formatPrice, buildWhats
     let order = null;
     let resolvedSettings = {};
     try {
-      // ---- Firestore Transaction ----
-      // ครอบทั้ง "ตรวจสอบรายการในตะกร้า + คำนวณราคาจากฐานข้อมูล" และ "สร้าง Order เดียว" ไว้ด้วยกัน
-      // ถ้าขั้นตอนตรวจสอบ (resolveCartFromDatabase) throw เมื่อไหร่ — เช่น เพลงถูกปิดขาย/ราคาไม่ถูกต้อง/
-      // เพลย์ลิสต์ไม่มีเพลงเหลือขาย — transaction จะไม่ commit และไม่มีการเขียน Order ลง Firestore เลย
-      // (rollback อัตโนมัติของ Firestore) ตะกร้าฝั่ง client ก็จะไม่ถูกล้างด้วยเช่นกัน
-      order = await runTransaction(db, async (transaction) => {
-        const resolved = await resolveCartFromDatabase(transaction);
-        resolvedSettings = resolved.settings || {};
+      // ---- อ่านราคา/รายการล่าสุดจากฐานข้อมูลก่อน แล้วค่อยเขียน Order (ไม่ใช้ Firestore Transaction) ----
+      // หมายเหตุ (แก้บั๊ก 2026-09-05): เดิมใช้ runTransaction() ครอบขั้นตอนนี้ทั้งหมด แต่พบว่า
+      // Firestore Web SDK บางเบราว์เซอร์ (โดยเฉพาะ Safari/iPad) โยน TypeError ภายใน SDK เอง
+      // ("undefined is not an object (evaluating 'i.path')") ระหว่างปิด transaction แบบนี้
+      // จึงเปลี่ยนมาอ่านแบบธรรมดาก่อน แล้วค่อยเขียนทีเดียวด้วย setDoc() แทน ผลลัพธ์ทางธุรกิจเหมือนเดิม
+      // ทุกประการ เพียงไม่การันตี atomicity ระดับ transaction (ยอมรับได้ เพราะทุก Order มีสถานะ
+      // "รอตรวจสอบการโอน" ให้แอดมินเช็คมืออยู่แล้ว)
+      const resolved = await resolveCartFromDatabase();
+      resolvedSettings = resolved.settings || {};
 
-        const builtOrder = {
-          customer_name: customerName,
-          whatsapp,
-          items: resolved.items, // Order Items ทั้งหมดของตะกร้า ณ ขณะสั่งซื้อ
-          total: resolved.total,
-          order_type: resolved.orderType, // "single" | "playlist" | "mixed"
-          playlist_id: resolved.orderType === "playlist" ? (resolved.playlist?.id || null) : null,
-          playlist_name: resolved.orderType === "playlist" ? (resolved.playlist?.playlist_name || null) : null,
-          store_name: resolved.settings.website_name || "Music Store",
-          status: "pending_verify",
-          created_at: createdAt,
-          receipt_number: receiptNumber
-        };
-        // playlist_ids เป็นฟิลด์เสริมสำหรับ Order แบบผสม (เพลง+เพลย์ลิสต์ หรือหลายเพลย์ลิสต์) เท่านั้น
-        // ระบบเดิม (resolveOrderSongs ใน orders.js) อ่านฟิลด์นี้อยู่แล้วสำหรับสร้าง ZIP ดาวน์โหลด จึงไม่ต้องแก้ไฟล์นั้นเพิ่ม
-        if (resolved.orderType === "mixed") {
-          builtOrder.playlist_ids = resolved.playlistIds;
-        }
+      const builtOrder = {
+        customer_name: customerName,
+        whatsapp,
+        items: resolved.items, // Order Items ทั้งหมดของตะกร้า ณ ขณะสั่งซื้อ
+        total: resolved.total,
+        order_type: resolved.orderType, // "single" | "playlist" | "mixed"
+        playlist_id: resolved.orderType === "playlist" ? (resolved.playlist?.id || null) : null,
+        playlist_name: resolved.orderType === "playlist" ? (resolved.playlist?.playlist_name || null) : null,
+        store_name: resolved.settings.website_name || "Music Store",
+        status: "pending_verify",
+        created_at: createdAt,
+        receipt_number: receiptNumber
+      };
+      // playlist_ids เป็นฟิลด์เสริมสำหรับ Order แบบผสม (เพลง+เพลย์ลิสต์ หรือหลายเพลย์ลิสต์) เท่านั้น
+      // ระบบเดิม (resolveOrderSongs ใน orders.js) อ่านฟิลด์นี้อยู่แล้วสำหรับสร้าง ZIP ดาวน์โหลด จึงไม่ต้องแก้ไฟล์นั้นเพิ่ม
+      if (resolved.orderType === "mixed") {
+        builtOrder.playlist_ids = resolved.playlistIds;
+      }
 
-        transaction.set(orderRef, builtOrder);
-        return builtOrder;
-      });
+      await setDoc(orderRef, builtOrder);
+      order = builtOrder;
     } catch (err) {
       console.error("checkoutCart error:", err);
       setCheckoutFeedback("บันทึก Order ไม่สำเร็จ: " + (err?.message || err));
