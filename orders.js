@@ -885,9 +885,7 @@ async function openFullFilesModal(orderId) {
       </div>`
     : order.zip_status === "failed"
       ? `<div class="receipt-line" style="color:var(--danger);"><div><strong>⚠️ ยังสร้าง ZIP ไม่สำเร็จ</strong><small>${escapeHtml(order.zip_error || "ไม่ทราบสาเหตุ")}</small></div></div>`
-      : order.zip_status === "preparing"
-        ? `<div class="receipt-line" style="color:var(--accent);"><div><strong>⏳ กำลังสร้าง ZIP...</strong><small>ระบบกำลังดึงและบีบอัดไฟล์ WAV อยู่ กรุณารอสักครู่แล้วเปิดหน้าต่างนี้ใหม่</small></div></div>`
-        : "";
+      : "";
   content.innerHTML = zipRow + (rows.join("") || `<div class="empty-state">ไม่มีรายการเพลงในออเดอร์นี้</div>`);
 }
 
