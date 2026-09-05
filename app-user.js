@@ -61,6 +61,7 @@ function loadCart() {
             cover_url: String(item.cover_url || ""),
             dj_name: String(item.dj_name || ""),
             price: Math.max(0, Number(item.price) || 0),
+            kind: item.kind === "playlist" ? "playlist" : "song",
             quantity: 1
           });
         }
@@ -104,6 +105,7 @@ function addToCart(song) {
     cover_url: String(song.cover_url || ""),
     dj_name: String(song.dj_name || ""),
     price: Math.max(0, Number(song.price) || 0),
+    kind: song.kind === "playlist" ? "playlist" : "song",
     quantity: 1
   });
   showToast("เพิ่มเพลงลงตะกร้าแล้ว", "success");
@@ -142,7 +144,7 @@ function renderCart() {
       <img class="cart-item-cover" src="${escapeHtml(item.cover_url)}" alt="">
       <div class="cart-item-info">
         <div class="cart-item-name">${escapeHtml(item.song_name)}</div>
-        <div class="cart-item-meta">${escapeHtml(item.dj_name || "เพลง Remix")} · ${formatPrice(item.price)} / เพลง</div>
+        <div class="cart-item-meta">${item.kind === "playlist" ? "เพลย์ลิสต์" : escapeHtml(item.dj_name || "เพลง Remix")} · ${formatPrice(item.price)}${item.kind === "playlist" ? "" : " / เพลง"}</div>
       </div>
       <div class="cart-item-total">${formatPrice(item.price * item.quantity)}</div>
       <button class="cart-remove" type="button" data-cart-remove="${escapeHtml(item.id)}">ลบ</button>
@@ -410,7 +412,7 @@ function renderSongGrid() {
         <div class="song-footer" style="display: flex; justify-content: flex-end; align-items: center; margin-top: auto;">
           <button class="cart-add-btn" type="button" data-add-cart="${s.id}" aria-label="เพิ่ม ${escapeHtml(s.song_name)} ลงตะกร้า">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            เพิ่มลงตะกร้า · ${formatPrice(s.price)}
+            ${formatPrice(s.price)}
           </button>
         </div>
       </div>
@@ -469,10 +471,10 @@ function renderPlaylists() {
             <div class="playlist-folder-count">${songs.length} เพลง</div>
           </div>
           <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; margin-left: auto; padding-right: 8px;">
-            ${pl.price ? `<span class="playlist-folder-price" data-buy-playlist="${pl.id}" style="color: #22c55e; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 14px;">
+            ${pl.price ? `<button type="button" class="cart-add-btn playlist-folder-price" data-add-cart-playlist="${pl.id}" aria-label="เพิ่มเพลย์ลิสต์ ${escapeHtml(pl.playlist_name)} ลงตะกร้า">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
               ${formatPrice(pl.price)}
-            </span>` : ""}
+            </button>` : ""}
           </div>
           <svg class="playlist-folder-arrow${isOpen ? "" : " is-closed"}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
         </div>
@@ -519,14 +521,21 @@ function renderPlaylists() {
     });
   });
 
-  container.querySelectorAll("[data-buy-playlist]").forEach(btn => {
+  container.querySelectorAll("[data-add-cart-playlist]").forEach(btn => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      const pl = STATE.playlists.find(p => p.id === btn.getAttribute("data-buy-playlist"));
+      const pl = STATE.playlists.find(p => p.id === btn.getAttribute("data-add-cart-playlist"));
       if (!pl) return;
       const songCount = STATE.songs.filter(s => s.playlist_id === pl.id).length;
-      const text = `สวัสดีครับ\nสนใจซื้อเพลย์ลิสต์ทั้งชุด:\nชื่อเพลย์ลิสต์: ${pl.playlist_name}\nจำนวนเพลง: ${songCount} เพลง\nราคา: ${formatPrice(pl.price)}`;
-      window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+      const firstSong = STATE.songs.find(s => s.playlist_id === pl.id);
+      addToCart({
+        id: `playlist:${pl.id}`,
+        song_name: `เพลย์ลิสต์: ${pl.playlist_name}`,
+        cover_url: pl.cover_url || firstSong?.cover_url || "",
+        dj_name: `${songCount} เพลง`,
+        price: pl.price,
+        kind: "playlist"
+      });
     });
   });
 
@@ -792,9 +801,10 @@ function openSongModal(songId) {
     modalBtn.onclick = () => { unlockAudio(); playSong(songId); };
   }
   if (buyBtn) {
+    buyBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>${formatPrice(song.price)}</span>`;
+    buyBtn.setAttribute("aria-label", `เพิ่ม ${song.song_name} ลงตะกร้า`);
     buyBtn.onclick = () => {
-      const text = `สวัสดีครับ\nสนใจซื้อเพลง:\nชื่อเพลง: ${song.song_name}\nDJ: ${song.dj_name || "-"}\nราคา: ${formatPrice(song.price)}`;
-      window.open(buildWhatsAppLink(STATE.settings.whatsapp_number, text), "_blank");
+      addToCart(song);
     };
   }
   updatePlayButtonsUI();
