@@ -30,7 +30,10 @@ const CloudinaryProvider = {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", url);
       xhr.upload.onprogress = (e) => {
-        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        if (onProgress && e.lengthComputable) {
+          // ส่งทั้งเปอร์เซ็นต์และจำนวนไบต์จริง (loaded/total) ให้ผู้เรียกใช้แสดงผลแบบ "2 MB / 6 MB" แบบเรียลไทม์ได้
+          onProgress(Math.round((e.loaded / e.total) * 100), e.loaded, e.total);
+        }
       };
       xhr.onload = () => {
         try {
@@ -78,13 +81,13 @@ export async function uploadToStorage(file, onProgress, folder = "") {
   return getStorageProvider().upload(file, { folder }, onProgress);
 }
 
-// อัปโหลดไฟล์เพลงเต็ม WAV — เก็บแยกโฟลเดอร์ "full-songs" ไม่ปนกับไฟล์ตัวอย่างที่โชว์บนเว็บ user
+// อัปโหลดไฟล์เพลงเต็ม WAV/MP3 — เก็บแยกโฟลเดอร์ "full-songs" ไม่ปนกับไฟล์ตัวอย่างที่โชว์บนเว็บ user
 // (โฟลเดอร์นี้ไม่ถูก reference จากหน้าเว็บ user เลย ใช้เฉพาะฝั่ง Admin เท่านั้น)
 export async function uploadFullSong(file, onProgress) {
   return getStorageProvider().upload(file, { folder: "full-songs" }, onProgress);
 }
 
-// อัปโหลด ZIP ที่ระบบสร้างจากไฟล์ WAV เต็มของออเดอร์
+// อัปโหลด ZIP ที่ระบบสร้างจากไฟล์เต็มของออเดอร์
 // แยกโฟลเดอร์จากไฟล์เพลงเดิม เพื่อไม่กระทบลิงก์/ข้อมูลเพลงที่มีอยู่แล้ว
 export async function uploadOrderZip(file, onProgress) {
   // ZIP เป็นไฟล์ archive ไม่ใช่รูป/วิดีโอ จึงส่งผ่าน raw/upload โดยเฉพาะ
